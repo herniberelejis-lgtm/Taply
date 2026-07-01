@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { clientes } from "@/lib/data";
+import { getClientes } from "@/lib/db";
 import { metricaActual, citasIA, ingresoNFC } from "@/lib/types";
 import { fmtARS } from "@/lib/format";
 import {
@@ -10,7 +10,10 @@ import {
   Stars,
 } from "@/components/ui";
 
+export const dynamic = "force-dynamic";
+
 export default function ClientesPage() {
+  const clientes = getClientes();
   const ordenados = [...clientes].sort((a, b) => a.nombre.localeCompare(b.nombre));
 
   return (
@@ -18,6 +21,14 @@ export default function ClientesPage() {
       <PageHeader
         title="Clientes"
         subtitle={`${clientes.length} cuentas en cartera`}
+        actions={
+          <Link
+            href="/clientes/nuevo"
+            className="rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700"
+          >
+            + Nuevo cliente
+          </Link>
+        }
       />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">

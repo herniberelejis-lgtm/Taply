@@ -1,5 +1,8 @@
 import type { Cliente } from "./types";
 
+// Datos semilla: se usan UNA sola vez para crear data/db.json si no existe.
+// A partir de ahí la fuente de verdad es la base de datos (lib/db.ts).
+
 // Datos de ejemplo (mock). En una siguiente etapa esto se reemplaza por
 // una base de datos / integraciones (Google Business Profile, Search Console,
 // Bing Webmaster Tools, OtterlyAI). Por ahora alcanza para dar forma a la UI.
@@ -14,9 +17,10 @@ function serie(
   return MESES.map((_, i) => Math.max(0, Math.round(base + paso * i + (jitter[i] ?? 0))));
 }
 
-export const clientes: Cliente[] = [
+export const seedClientes: Cliente[] = [
   {
     id: "barberia-guemes",
+    codigoAcceso: "bg7k2m4p",
     nombre: "Barbería El Corte — Güemes",
     rubro: "Peluquería / Barbería",
     zona: "Güemes",
@@ -47,6 +51,7 @@ export const clientes: Cliente[] = [
   },
   {
     id: "resto-nueva-cordoba",
+    codigoAcceso: "rn9x3c5v",
     nombre: "La Parrilla de Nueva Córdoba",
     rubro: "Restaurante / Bar",
     zona: "Nueva Córdoba",
@@ -77,6 +82,7 @@ export const clientes: Cliente[] = [
   },
   {
     id: "clinica-general-paz",
+    codigoAcceso: "cg2h8j6l",
     nombre: "Consultorio Odontológico General Paz",
     rubro: "Clínica / Consultorio",
     zona: "General Paz",
@@ -103,6 +109,7 @@ export const clientes: Cliente[] = [
   },
   {
     id: "taller-alberdi",
+    codigoAcceso: "ta5q1w9e",
     nombre: "Taller Mecánico Alberdi Motors",
     rubro: "Taller mecánico",
     zona: "Alberdi",
@@ -129,6 +136,7 @@ export const clientes: Cliente[] = [
   },
   {
     id: "vet-cerro",
+    codigoAcceso: "vc4r7t2y",
     nombre: "Veterinaria Cerro de las Rosas",
     rubro: "Veterinaria",
     zona: "Cerro de las Rosas",
@@ -155,6 +163,7 @@ export const clientes: Cliente[] = [
   },
   {
     id: "gym-guemes",
+    codigoAcceso: "gg8u3i6o",
     nombre: "Gimnasio Fuerza Güemes",
     rubro: "Gimnasio",
     zona: "Güemes",
@@ -184,6 +193,7 @@ export const clientes: Cliente[] = [
   },
   {
     id: "estetica-nc",
+    codigoAcceso: "en1a5s9d",
     nombre: "Estética Piel & Color",
     rubro: "Estética",
     zona: "Nueva Córdoba",
@@ -209,7 +219,3 @@ export const clientes: Cliente[] = [
     })),
   },
 ];
-
-export function getCliente(id: string): Cliente | undefined {
-  return clientes.find((c) => c.id === id);
-}

@@ -1,12 +1,16 @@
 import Link from "next/link";
-import { clientes } from "@/lib/data";
+import { getClientes } from "@/lib/db";
 import { metricaActual } from "@/lib/types";
 import { Card, PageHeader, PlanBadge } from "@/components/ui";
 import { fmtMes } from "@/lib/format";
 
+export const dynamic = "force-dynamic";
+
 export default function ReportesPage() {
+  const clientes = getClientes();
   const activos = clientes.filter((c) => c.estado === "activo");
-  const mesRef = metricaActual(activos[0])?.mes;
+  const conDatos = activos.find((c) => c.historico.length > 0);
+  const mesRef = conDatos ? metricaActual(conDatos)?.mes : undefined;
 
   return (
     <div>

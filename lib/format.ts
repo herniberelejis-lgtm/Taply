@@ -18,6 +18,7 @@ export function fmtNum(v: number): string {
 
 export function fmtMes(mes: string): string {
   // "2026-06" -> "Jun 2026"
+  if (!/^\d{4}-\d{2}$/.test(mes)) return mes;
   const [y, m] = mes.split("-").map(Number);
   const nombres = [
     "Ene", "Feb", "Mar", "Abr", "May", "Jun",

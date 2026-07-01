@@ -1,14 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { clientes, getCliente } from "@/lib/data";
+import { getCliente } from "@/lib/db";
 import { metricaActual, metricaAnterior, citasIA } from "@/lib/types";
 import { fmtNum, fmtMes, delta } from "@/lib/format";
 import { recomendacionDelMes } from "@/lib/recomendacion";
 import { Stars } from "@/components/ui";
 
-export function generateStaticParams() {
-  return clientes.map((c) => ({ id: c.id }));
-}
+export const dynamic = "force-dynamic";
 
 function deltaTexto(actual: number, anterior: number, invertir = false): string {
   const d = delta(actual, anterior);

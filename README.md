@@ -5,14 +5,17 @@ Da forma al seguimiento de clientes descripto en el documento de proyecto:
 reseñas de Google, posición en el Local Pack de Maps, citaciones en motores de
 IA (GEO) y generación de reportes mensuales.
 
-> Estado: **v0.1 — fundación con datos de ejemplo.** La UI y el modelo de
-> dominio están completos; falta conectar las integraciones reales.
+> Estado: **v0.2 — producto operativo.** Alta/edición de clientes, carga
+> mensual de métricas, ventas NFC, analytics y portal de clientes por código
+> de acceso. Falta conectar las integraciones automáticas (GBP, Bing, OtterlyAI).
 
 ## Stack
 
 - **Next.js 15** (App Router) + **React 19** + **TypeScript**
 - **Tailwind CSS 3** para estilos
-- Sin base de datos todavía: los datos viven en `lib/data.ts` (mock)
+- **Base de datos en el repo**: `data/db.json`, versionada en git. Cero
+  servicios externos — cada `git push` respalda también los datos. Si el
+  archivo no existe (clon nuevo), se crea solo a partir de `lib/seed.ts`.
 
 ## Correr en local
 
@@ -27,20 +30,40 @@ Otros scripts: `npm run build`, `npm run start`, `npm run lint`.
 
 ```
 app/
-  page.tsx                 Panel general (KPIs de cartera + tabla)
-  clientes/page.tsx        Grilla de clientes
-  clientes/[id]/page.tsx   Ficha del cliente + evolución + detalle mensual
-  reportes/page.tsx        Índice de reportes
-  reportes/[id]/page.tsx   Reporte mensual imprimible (formato del proyecto)
+  (admin)/                       Panel interno (con sidebar)
+    page.tsx                     Panel general (KPIs de cartera + tabla)
+    analytics/                   Analytics de cartera (filtros + 5 gráficos)
+    clientes/                    Grilla, alta (/nuevo), ficha, edición,
+                                 carga de métricas (/[id]/metricas)
+    reportes/                    Reporte mensual imprimible por cliente
+  portal/[codigo]/page.tsx       Portal del cliente (read-only, por código)
+  actions.ts                     Server actions (mutaciones sobre la DB)
 components/
-  Sidebar.tsx              Navegación
-  ui.tsx                   Card, Kpi, Sparkline, badges, Stars
+  Sidebar.tsx                    Navegación del panel
+  ui.tsx                         Card, Kpi, Sparkline, badges, Stars
+  forms.tsx                      Formularios (cliente, métricas, venta NFC)
+  AnalyticsView.tsx              Vista client-side de analytics
+  charts/                        Primitivas SVG (columnas, barras, línea)
+data/
+  db.json                        LA BASE DE DATOS (versionada en git)
 lib/
-  types.ts                 Modelo de dominio (Cliente, MetricaMensual, VentaNFC…)
-  data.ts                  Datos de ejemplo
-  format.ts                Formato es-AR (ARS, números, meses, deltas)
-  recomendacion.ts         Genera la recomendación del reporte mensual
+  db.ts                          Capa de acceso: CRUD sobre data/db.json
+  types.ts                       Modelo de dominio
+  seed.ts                        Datos semilla (solo primer arranque)
+  format.ts / palette.ts / recomendacion.ts
 ```
+
+## Flujo de trabajo diario
+
+1. **Vendiste una tarjeta / cerraste un cliente** → Clientes → *+ Nuevo cliente*.
+2. **Cargar el mes** → ficha del cliente → *+ Cargar métricas* (si el mes ya
+   existe, se reemplaza).
+3. **Venta de NFC adicional** → ficha → *Editar / Venta NFC*.
+4. **Venderle el acceso** → la ficha muestra el **código de portal** y el link
+   `/portal/<codigo>` para mandarle por WhatsApp. El cliente ve solo sus datos,
+   su evolución y la recomendación del mes. *Regenerar código* corta el acceso
+   anterior (por ejemplo si deja de pagar).
+5. **Respaldar** → `git add data/db.json && git commit -m "datos" && git push`.
 
 ## Modelo de dominio
 

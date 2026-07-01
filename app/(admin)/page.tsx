@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { clientes } from "@/lib/data";
+import { getClientes } from "@/lib/db";
 import {
   metricaActual,
   metricaAnterior,
@@ -22,7 +22,10 @@ function sum(nums: number[]): number {
   return nums.reduce((a, b) => a + b, 0);
 }
 
+export const dynamic = "force-dynamic";
+
 export default function DashboardPage() {
+  const clientes = getClientes();
   const activos = clientes.filter((c) => c.estado === "activo");
 
   const mrr = sum(activos.map((c) => c.fee));

@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { clientes } from "@/lib/data";
 import type { Cliente, MetricaMensual, Plan } from "@/lib/types";
 import { citasIA } from "@/lib/types";
 import { fmtNum, fmtARS, fmtMes, delta } from "@/lib/format";
@@ -14,16 +13,6 @@ import LineChart from "@/components/charts/LineChart";
 
 type FiltroPlan = "Todos" | Plan;
 
-// Solo cuentas activas alimentan los gráficos (los prospectos aún no tienen
-// histórico). El color se asigna por entidad sobre la lista completa y se
-// mantiene al filtrar: un cliente nunca cambia de color.
-const activos = clientes.filter((c) => c.estado === "activo");
-const colorDe = new Map<string, string>(
-  activos.map((c, i) => [c.id, SERIES[i % SERIES.length]]),
-);
-
-const meses = [...new Set(activos.flatMap((c) => c.historico.map((h) => h.mes)))].sort();
-
 function metricaDe(c: Cliente, mes: string): MetricaMensual | undefined {
   return c.historico.find((h) => h.mes === mes);
 }
@@ -32,17 +21,33 @@ function sum(nums: number[]): number {
   return nums.reduce((a, b) => a + b, 0);
 }
 
-export default function AnalyticsPage() {
+export default function AnalyticsView({ clientes }: { clientes: Cliente[] }) {
   const [plan, setPlan] = useState<FiltroPlan>("Todos");
+
+  // Solo cuentas activas alimentan los gráficos. El color se asigna por
+  // entidad sobre la lista completa y se mantiene al filtrar: un cliente
+  // nunca cambia de color.
+  const activos = useMemo(
+    () => clientes.filter((c) => c.estado === "activo"),
+    [clientes],
+  );
+  const colorDe = useMemo(
+    () => new Map<string, string>(activos.map((c, i) => [c.id, SERIES[i % SERIES.length]])),
+    [activos],
+  );
+  const meses = useMemo(
+    () => [...new Set(activos.flatMap((c) => c.historico.map((h) => h.mes)))].sort(),
+    [activos],
+  );
 
   const visibles = useMemo(
     () => activos.filter((c) => plan === "Todos" || c.plan === plan),
-    [plan],
+    [activos, plan],
   );
 
   const labels = meses.map(fmtMes);
-  const mesActual = meses[meses.length - 1];
-  const mesPrevio = meses[meses.length - 2];
+  const mesActual = meses[meses.length - 1] ?? "";
+  const mesPrevio = meses[meses.length - 2] ?? "";
 
   // --- KPIs del mes (scopeados por el filtro) ---
   const kpi = useMemo(() => {
@@ -113,7 +118,7 @@ export default function AnalyticsPage() {
     dir: d.dir,
     text:
       d.pct !== null
-        ? `${d.valor >= 0 ? "+" : ""}${d.pct.toFixed(0)}% vs ${fmtMes(mesPrevio)}`
+        ? `${d.valor >= 0 ? "+" : ""}${d.pct.toFixed(0)}%${mesPrevio ? ` vs ${fmtMes(mesPrevio)}` : ""}`
         : `${d.valor >= 0 ? "+" : ""}${d.valor}`,
     good: d.dir === "up",
   });
@@ -122,7 +127,11 @@ export default function AnalyticsPage() {
     <div>
       <PageHeader
         title="Analytics"
-        subtitle={`Evolución de la cartera · ${fmtMes(meses[0])} – ${fmtMes(mesActual)} · solo cuentas activas`}
+        subtitle={
+          meses.length > 0
+            ? `Evolución de la cartera · ${fmtMes(meses[0])} – ${fmtMes(mesActual)} · solo cuentas activas`
+            : "Todavía no hay métricas cargadas · solo cuentas activas"
+        }
       />
 
       {/* Fila de filtros: una sola, arriba, scopea todo lo de abajo */}
@@ -231,7 +240,7 @@ export default function AnalyticsPage() {
 
         <ChartCard
           title="Posición en Google Maps"
-          subtitle={`Ranking actual para la búsqueda clave de cada cliente · ${fmtMes(mesActual)} · menos es mejor`}
+          subtitle={`Ranking actual para la búsqueda clave de cada cliente${mesActual ? ` · ${fmtMes(mesActual)}` : ""} · menos es mejor`}
           table={{
             head: ["Cliente", "Posición"],
             rows: posiciones.map((d) => [d.label, `#${d.value}`]),

@@ -89,6 +89,14 @@ export function Sparkline({
   invert?: boolean; // true cuando "menos es mejor" (p.ej. posición en Maps)
 }) {
   if (values.length === 0) return null;
+  if (values.length === 1) {
+    // un solo dato: todavía no hay tendencia que dibujar — un punto
+    return (
+      <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
+        <circle cx={width / 2} cy={height / 2} r={4} fill="#2a78d6" stroke="#ffffff" strokeWidth={2} />
+      </svg>
+    );
+  }
   const min = Math.min(...values);
   const max = Math.max(...values);
   const range = max - min || 1;

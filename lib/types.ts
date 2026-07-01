@@ -53,6 +53,8 @@ export interface MetricaMensual {
 
 export interface Cliente {
   id: string;
+  /** Código privado con el que el cliente accede a su portal (/portal/[codigo]). */
+  codigoAcceso: string;
   nombre: string;
   rubro: Rubro;
   zona: Zona;

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { clientes, getCliente } from "@/lib/data";
+import { getCliente } from "@/lib/db";
+import { accionRegenerarCodigo } from "@/app/actions";
 import {
   metricaActual,
   metricaAnterior,
@@ -18,9 +19,7 @@ import {
   Sparkline,
 } from "@/components/ui";
 
-export function generateStaticParams() {
-  return clientes.map((c) => ({ id: c.id }));
-}
+export const dynamic = "force-dynamic";
 
 export default async function ClienteDetallePage({
   params,
@@ -58,6 +57,68 @@ export default async function ClienteDetallePage({
           </div>
         }
       />
+
+      {/* Acciones */}
+      <div className="mb-6 flex flex-wrap gap-2">
+        <Link
+          href={`/clientes/${c.id}/metricas`}
+          className="rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700"
+        >
+          + Cargar métricas
+        </Link>
+        <Link
+          href={`/clientes/${c.id}/editar`}
+          className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 hover:border-slate-400"
+        >
+          Editar / Venta NFC
+        </Link>
+        <Link
+          href={`/reportes/${c.id}`}
+          className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 hover:border-slate-400"
+        >
+          Ver reporte mensual
+        </Link>
+      </div>
+
+      {/* Acceso del cliente a su portal */}
+      <div className="mb-4 rounded-xl border border-brand/20 bg-brand/5 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div className="text-xs font-medium uppercase tracking-wide text-brand-fg">
+              Portal del cliente
+            </div>
+            <div className="mt-1 text-sm text-slate-700">
+              Código de acceso:{" "}
+              <code className="rounded bg-white px-2 py-0.5 font-mono text-sm font-semibold text-slate-900">
+                {c.codigoAcceso}
+              </code>
+              <span className="ml-3 text-slate-500">
+                Link:{" "}
+                <Link
+                  href={`/portal/${c.codigoAcceso}`}
+                  className="font-medium text-brand-fg hover:underline"
+                  target="_blank"
+                >
+                  /portal/{c.codigoAcceso}
+                </Link>
+              </span>
+            </div>
+            <p className="mt-1 text-xs text-slate-500">
+              Compartile este link por WhatsApp: ve solo sus datos, su evolución
+              y las recomendaciones del mes.
+            </p>
+          </div>
+          <form action={accionRegenerarCodigo}>
+            <input type="hidden" name="id" value={c.id} />
+            <button
+              type="submit"
+              className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-600 hover:border-slate-400"
+            >
+              Regenerar código
+            </button>
+          </form>
+        </div>
+      </div>
 
       {/* Ficha */}
       <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-3">
