@@ -1,5 +1,11 @@
 import { notFound } from "next/navigation";
-import { getClientePorCodigo } from "@/lib/db";
+import {
+  getClientePorCodigo,
+  getTapsDelMesActual,
+  getFeedback,
+  getChecklist,
+  getAudits,
+} from "@/lib/db";
 import {
   citasIA,
   metricaActual,
@@ -23,10 +29,24 @@ export default async function PortalPage({
   const c = await getClientePorCodigo(codigo);
   if (!c || c.estado === "baja") notFound();
 
+  const [tapsDelMes, feedback, checklist, audits] = await Promise.all([
+    getTapsDelMesActual(c.id),
+    getFeedback(c.id),
+    getChecklist(c.id),
+    getAudits(c.id),
+  ]);
+
   const m = metricaActual(c);
   const prev = metricaAnterior(c);
   const esPremium = c.plan === "Premium";
   const recomendacion = recomendacionDelMes(c, m, prev);
+
+  const feedbackResueltos = feedback.filter((f) => f.estado === "resuelto").length;
+  const checklistHechos = checklist.filter((i) => i.hecho).length;
+  const checklistPct = checklist.length
+    ? Math.round((checklistHechos / checklist.length) * 100)
+    : 0;
+  const ultimosAudits = audits.slice(0, 3);
 
   const dResenas = delta(m?.resenasNuevas ?? 0, prev?.resenasNuevas ?? 0);
   const dMaps = delta(m?.posicionMaps ?? 0, prev?.posicionMaps ?? 0);
@@ -156,6 +176,71 @@ export default async function PortalPage({
                   <li>· Copilot te recomendó {fmtNum(m.citasCopilot ?? 0)} veces</li>
                   <li>· Perplexity te citó {fmtNum(m.citasPerplexity ?? 0)} veces</li>
                 </ul>
+                {ultimosAudits.length > 0 && (
+                  <div className="mt-4 border-t border-slate-100 pt-3">
+                    <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                      Últimas consultas de Audit GEO
+                    </p>
+                    <ul className="mt-2 space-y-1.5">
+                      {ultimosAudits.map((a) => (
+                        <li key={a.id} className="text-sm text-slate-600">
+                          {a.aparece ? "✅" : "❌"} &ldquo;{a.pregunta}&rdquo;
+                          <span className="text-xs text-slate-400"> · {a.plataforma}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </Card>
+            )}
+
+            {/* Presencia física (NFC) + reputación protegida */}
+            <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+              <Card>
+                <p className="text-sm font-medium text-slate-700">
+                  Cartel NFC este mes
+                </p>
+                <p className="mt-2 text-3xl font-semibold text-slate-900">
+                  {fmtNum(tapsDelMes)}
+                </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  veces que alguien tocó tu cartel
+                </p>
+              </Card>
+              <Card>
+                <p className="text-sm font-medium text-slate-700">
+                  Reputación protegida
+                </p>
+                <p className="mt-2 text-3xl font-semibold text-slate-900">
+                  {feedbackResueltos}
+                </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  {feedback.length > 0
+                    ? `de ${feedback.length} queja${feedback.length === 1 ? "" : "s"} resuelta${feedbackResueltos === 1 ? "" : "s"} antes de llegar a Google`
+                    : "todavía no llegó ningún feedback privado"}
+                </p>
+              </Card>
+            </div>
+
+            {checklist.length > 0 && (
+              <Card className="mt-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium text-slate-700">
+                    Ficha de Google optimizada
+                  </p>
+                  <span className="text-sm font-semibold text-slate-900">
+                    {checklistPct}%
+                  </span>
+                </div>
+                <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-100">
+                  <div
+                    className="h-full rounded-full bg-brand"
+                    style={{ width: `${checklistPct}%` }}
+                  />
+                </div>
+                <p className="mt-1.5 text-xs text-slate-500">
+                  {checklistHechos} de {checklist.length} tareas de SEO local completadas
+                </p>
               </Card>
             )}
 

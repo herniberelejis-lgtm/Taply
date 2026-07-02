@@ -337,6 +337,18 @@ export async function getTapsPorDia(comercioId: string, dias = 14): Promise<Taps
   return rows.map((r) => ({ fecha: r.fecha as string, taps: Number(r.taps) }));
 }
 
+/** Total de taps del mes en curso — para el portal del cliente. */
+export async function getTapsDelMesActual(comercioId: string): Promise<number> {
+  const rows = await sql`
+    SELECT COUNT(*)::int AS taps
+    FROM taps t
+    JOIN links_nfc l ON l.id = t.link_id
+    WHERE l.comercio_id = ${comercioId}
+      AND date_trunc('month', t.creado_en) = date_trunc('month', now())
+  `;
+  return Number(rows[0]?.taps ?? 0);
+}
+
 // ---------- Feedback privado ----------
 
 function mapFeedback(r: Record<string, unknown>): Feedback {
