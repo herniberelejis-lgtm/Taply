@@ -1,23 +1,41 @@
 "use server";
 
+import { headers } from "next/headers";
 import { crearFeedback } from "@/lib/db";
+import { permitir, limpiarVencidos } from "@/lib/ratelimit";
 
 // Server action pública (sin login): la usa cualquiera que toque un cartel
-// y elija 1-3 estrellas. Sin rate-limit por IP todavía (ver README,
-// sección Pendientes) — para el volumen de un cartel físico no es crítico,
-// pero es lo primero a sumar si el sitio empieza a recibir tráfico externo.
+// y elija 1-3 estrellas. Con rate limit por IP para frenar spam.
 
 export async function enviarFeedback(
   comercioId: string,
-  estrellas: 1 | 2 | 3,
+  estrellas: number,
   texto: string,
   contacto: string,
-): Promise<void> {
-  const textoLimpio = texto.trim().slice(0, 2000);
-  if (!textoLimpio) return;
+): Promise<{ ok: boolean; error?: string }> {
+  // Validación del lado servidor: nunca confiar en lo que manda el cliente.
+  const e = Math.round(Number(estrellas));
+  if (![1, 2, 3].includes(e)) {
+    return { ok: false, error: "Calificación inválida." };
+  }
+  const textoLimpio = String(texto ?? "").trim().slice(0, 2000);
+  if (!textoLimpio) return { ok: false, error: "Contanos qué pasó." };
+
+  // Rate limit: máx 5 envíos por IP cada 10 minutos.
+  limpiarVencidos();
+  const h = await headers();
+  const ip =
+    h.get("x-forwarded-for")?.split(",")[0].trim() ||
+    h.get("x-real-ip") ||
+    "desconocida";
+  if (!permitir(`feedback:${ip}`, 5, 10 * 60_000)) {
+    return { ok: false, error: "Demasiados envíos. Probá de nuevo en un rato." };
+  }
+
   await crearFeedback(comercioId, {
-    estrellas,
+    estrellas: e as 1 | 2 | 3,
     texto: textoLimpio,
-    contacto: contacto.trim().slice(0, 200) || null,
+    contacto: String(contacto ?? "").trim().slice(0, 200) || null,
   });
+  return { ok: true };
 }

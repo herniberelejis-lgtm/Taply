@@ -2,9 +2,13 @@ import { NextResponse, type NextRequest } from "next/server";
 
 // Protege el panel interno (/admin) con la contraseña de ADMIN_PASSWORD.
 // Todo lo demás es público: la landing (/), el portal de clientes
-// (/portal/…) y /login.
+// (/portal/…), la página de tap (/t/…) y /login.
 // Sin ADMIN_PASSWORD configurada: /admin abierto en desarrollo (tu PC),
 // bloqueado en producción (nunca se publica el panel sin contraseña).
+//
+// Además de este filtro por ruta, cada server action de admin vuelve a
+// verificar la sesión por su cuenta (lib/auth.ts → requireAdmin), así una
+// mutación nunca puede ejecutarse por un request forjado.
 
 const PROTEGIDAS = /^\/admin(\/|$)/;
 
@@ -38,5 +42,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:png|jpg|jpeg|svg|webp)$).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:png|jpg|jpeg|svg|webp|ico)$).*)"],
 };

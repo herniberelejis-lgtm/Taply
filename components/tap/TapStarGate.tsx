@@ -28,13 +28,20 @@ export default function TapStarGate({
   const esPositiva = estrellas >= 4;
   const esNegativa = estrellas >= 1 && estrellas <= 3;
 
+  const [error, setError] = useState<string | null>(null);
+
   async function handleEnviarFeedback(e: React.FormEvent) {
     e.preventDefault();
     if (enviando || !texto.trim()) return;
     setEnviando(true);
-    await enviarFeedback(comercioId, estrellas as 1 | 2 | 3, texto, contacto);
+    setError(null);
+    const res = await enviarFeedback(comercioId, estrellas as 1 | 2 | 3, texto, contacto);
     setEnviando(false);
-    setEnviado(true);
+    if (res.ok) {
+      setEnviado(true);
+    } else {
+      setError(res.error ?? "No se pudo enviar. Probá de nuevo.");
+    }
   }
 
   return (
@@ -114,6 +121,9 @@ export default function TapStarGate({
             >
               {enviando ? "Enviando..." : "Enviar en privado"}
             </button>
+            {error && (
+              <p className="mt-2 text-center text-sm text-rose-600">{error}</p>
+            )}
             <a
               href={googleReviewUrl}
               className="mt-4 block text-center text-sm text-slate-500 underline underline-offset-2"

@@ -1,12 +1,8 @@
 "use server";
 
-import crypto from "node:crypto";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-
-function sha256(texto: string): string {
-  return crypto.createHash("sha256").update(texto).digest("hex");
-}
+import { hashPassword } from "@/lib/auth";
 
 export async function accionLogin(fd: FormData): Promise<void> {
   const password = process.env.ADMIN_PASSWORD;
@@ -17,7 +13,7 @@ export async function accionLogin(fd: FormData): Promise<void> {
   }
 
   const jar = await cookies();
-  jar.set("admin_session", sha256(password), {
+  jar.set("admin_session", hashPassword(password), {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",

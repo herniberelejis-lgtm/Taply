@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import * as db from "@/lib/db";
+import { requireAdmin } from "@/lib/auth";
 import type {
   DestinoLink,
   EstadoCliente,
@@ -30,6 +31,7 @@ function num(fd: FormData, key: string): number {
 }
 
 export async function accionCrearCliente(fd: FormData): Promise<void> {
+  await requireAdmin();
   const nombre = str(fd, "nombre");
   if (!nombre) throw new Error("El nombre del negocio es obligatorio.");
   const cliente = await db.crearCliente({
@@ -50,6 +52,7 @@ export async function accionCrearCliente(fd: FormData): Promise<void> {
 }
 
 export async function accionActualizarCliente(fd: FormData): Promise<void> {
+  await requireAdmin();
   const id = str(fd, "id");
   await db.actualizarCliente(id, {
     nombre: str(fd, "nombre"),
@@ -68,6 +71,7 @@ export async function accionActualizarCliente(fd: FormData): Promise<void> {
 }
 
 export async function accionGuardarMetrica(fd: FormData): Promise<void> {
+  await requireAdmin();
   const id = str(fd, "id");
   const esPremium = str(fd, "esPremium") === "1";
   const metrica: MetricaMensual = {
@@ -92,6 +96,7 @@ export async function accionGuardarMetrica(fd: FormData): Promise<void> {
 }
 
 export async function accionEliminarMetrica(fd: FormData): Promise<void> {
+  await requireAdmin();
   const id = str(fd, "id");
   await db.eliminarMetrica(id, str(fd, "mes"));
   revalidatePath("/", "layout");
@@ -99,6 +104,7 @@ export async function accionEliminarMetrica(fd: FormData): Promise<void> {
 }
 
 export async function accionRegistrarVentaNFC(fd: FormData): Promise<void> {
+  await requireAdmin();
   const id = str(fd, "id");
   await db.registrarVentaNFC(id, {
     formato: str(fd, "formato") as FormatoNFC,
@@ -111,6 +117,7 @@ export async function accionRegistrarVentaNFC(fd: FormData): Promise<void> {
 }
 
 export async function accionRegenerarCodigo(fd: FormData): Promise<void> {
+  await requireAdmin();
   const id = str(fd, "id");
   await db.regenerarCodigo(id);
   revalidatePath("/", "layout");
@@ -120,6 +127,7 @@ export async function accionRegenerarCodigo(fd: FormData): Promise<void> {
 // ---------- Links NFC ----------
 
 export async function accionCrearLink(fd: FormData): Promise<void> {
+  await requireAdmin();
   const comercioId = str(fd, "comercioId");
   const destino = str(fd, "destino") as DestinoLink;
   const urlDestino = str(fd, "urlDestino");
@@ -136,6 +144,7 @@ export async function accionCrearLink(fd: FormData): Promise<void> {
 }
 
 export async function accionActualizarLink(fd: FormData): Promise<void> {
+  await requireAdmin();
   const linkId = str(fd, "linkId");
   const comercioId = str(fd, "comercioId");
   const destino = str(fd, "destino") as DestinoLink;
@@ -151,6 +160,7 @@ export async function accionActualizarLink(fd: FormData): Promise<void> {
 }
 
 export async function accionEliminarLink(fd: FormData): Promise<void> {
+  await requireAdmin();
   const linkId = str(fd, "linkId");
   const comercioId = str(fd, "comercioId");
   await db.eliminarLink(linkId);
@@ -161,6 +171,7 @@ export async function accionEliminarLink(fd: FormData): Promise<void> {
 // ---------- CRM: feedback privado ----------
 
 export async function accionActualizarFeedback(fd: FormData): Promise<void> {
+  await requireAdmin();
   const id = Number(fd.get("id"));
   const comercioId = str(fd, "comercioId");
   await db.actualizarFeedback(id, {
@@ -174,6 +185,7 @@ export async function accionActualizarFeedback(fd: FormData): Promise<void> {
 // ---------- CRM: reseñas ----------
 
 export async function accionCrearResena(fd: FormData): Promise<void> {
+  await requireAdmin();
   const comercioId = str(fd, "comercioId");
   await db.crearResena(comercioId, {
     autor: str(fd, "autor") || "Anónimo",
@@ -187,6 +199,7 @@ export async function accionCrearResena(fd: FormData): Promise<void> {
 }
 
 export async function accionActualizarResena(fd: FormData): Promise<void> {
+  await requireAdmin();
   const id = Number(fd.get("id"));
   const comercioId = str(fd, "comercioId");
   await db.actualizarResena(id, {
@@ -203,6 +216,7 @@ export async function accionActualizarResena(fd: FormData): Promise<void> {
 // ---------- Checklist SEO ----------
 
 export async function accionToggleChecklist(fd: FormData): Promise<void> {
+  await requireAdmin();
   const comercioId = str(fd, "comercioId");
   const itemKey = str(fd, "itemKey");
   const hecho = fd.get("hecho") === "1";
@@ -214,6 +228,7 @@ export async function accionToggleChecklist(fd: FormData): Promise<void> {
 // ---------- Audit GEO ----------
 
 export async function accionRegistrarAudit(fd: FormData): Promise<void> {
+  await requireAdmin();
   const comercioId = str(fd, "comercioId");
   await db.crearAudit(comercioId, {
     pregunta: str(fd, "pregunta"),
@@ -228,6 +243,7 @@ export async function accionRegistrarAudit(fd: FormData): Promise<void> {
 // ---------- Competencia ----------
 
 export async function accionCrearCompetidor(fd: FormData): Promise<void> {
+  await requireAdmin();
   const comercioId = str(fd, "comercioId");
   await db.crearCompetidor(comercioId, {
     nombre: str(fd, "nombre"),
@@ -239,6 +255,7 @@ export async function accionCrearCompetidor(fd: FormData): Promise<void> {
 }
 
 export async function accionActualizarCompetidor(fd: FormData): Promise<void> {
+  await requireAdmin();
   const id = Number(fd.get("id"));
   const comercioId = str(fd, "comercioId");
   await db.actualizarCompetidor(id, {
@@ -250,6 +267,7 @@ export async function accionActualizarCompetidor(fd: FormData): Promise<void> {
 }
 
 export async function accionEliminarCompetidor(fd: FormData): Promise<void> {
+  await requireAdmin();
   const id = Number(fd.get("id"));
   const comercioId = str(fd, "comercioId");
   await db.eliminarCompetidor(id);
