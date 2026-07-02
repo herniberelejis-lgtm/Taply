@@ -85,6 +85,24 @@ export default async function ClienteDetallePage({
           CRM de reseñas
         </Link>
         <Link
+          href={`/admin/clientes/${c.id}/seo`}
+          className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 hover:border-slate-400"
+        >
+          Checklist SEO
+        </Link>
+        <Link
+          href={`/admin/clientes/${c.id}/geo`}
+          className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 hover:border-slate-400"
+        >
+          Audit GEO
+        </Link>
+        <Link
+          href={`/admin/clientes/${c.id}/competencia`}
+          className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 hover:border-slate-400"
+        >
+          Competencia
+        </Link>
+        <Link
           href={`/admin/reportes/${c.id}`}
           className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 hover:border-slate-400"
         >
