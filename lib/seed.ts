@@ -14,7 +14,7 @@ function serie(
   return MESES.map((_, i) => Math.max(0, Math.round(base + paso * i + (jitter[i] ?? 0))));
 }
 
-export const seedClientes: Cliente[] = [
+export const seedClientes: Omit<Cliente, "tonoMarca">[] = [
   {
     id: "barberia-guemes",
     codigoAcceso: "bg7k2m4p",

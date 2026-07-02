@@ -164,6 +164,16 @@ export function ClienteForm({
       </Field>
 
       <Field
+        label="Tono de marca"
+        hint="Lo usa el generador de respuestas sugeridas del CRM."
+      >
+        <select name="tonoMarca" defaultValue={cliente?.tonoMarca ?? "cercano"} className={inputCls}>
+          <option value="cercano">Cercano</option>
+          <option value="formal">Formal</option>
+        </select>
+      </Field>
+
+      <Field
         label="Búsqueda clave"
         hint="La búsqueda en la que se mide la posición en Maps."
       >

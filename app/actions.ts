@@ -43,6 +43,7 @@ export async function accionCrearCliente(fd: FormData): Promise<void> {
     googleReviewUrl: str(fd, "googleReviewUrl"),
     busquedaClave: str(fd, "busquedaClave"),
     fee: num(fd, "fee"),
+    tonoMarca: (str(fd, "tonoMarca") || "cercano") as "cercano" | "formal",
   });
   revalidatePath("/", "layout");
   redirect(`/admin/clientes/${cliente.id}`);
@@ -60,6 +61,7 @@ export async function accionActualizarCliente(fd: FormData): Promise<void> {
     googleReviewUrl: str(fd, "googleReviewUrl"),
     busquedaClave: str(fd, "busquedaClave"),
     fee: num(fd, "fee"),
+    tonoMarca: (str(fd, "tonoMarca") || "cercano") as "cercano" | "formal",
   });
   revalidatePath("/", "layout");
   redirect(`/admin/clientes/${id}`);

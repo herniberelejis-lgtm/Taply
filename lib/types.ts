@@ -65,9 +65,13 @@ export interface Cliente {
   googleReviewUrl: string;
   busquedaClave: string; // p.ej. "peluquería en Nueva Córdoba"
   fee: number; // abono mensual ARS
+  tonoMarca: TonoMarca;
   ventasNFC: VentaNFC[];
   historico: MetricaMensual[]; // ordenado ascendente por mes
 }
+
+/** Tono usado por el generador de respuestas sugeridas (lib/respuestas.ts). */
+export type TonoMarca = "cercano" | "formal";
 
 /** Utilidades derivadas. */
 export function metricaActual(c: Cliente): MetricaMensual | undefined {

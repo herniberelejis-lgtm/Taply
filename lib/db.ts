@@ -18,6 +18,7 @@ import type {
   PlataformaIA,
   ResenaCRM,
   Rubro,
+  TonoMarca,
   VentaNFC,
   Zona,
 } from "./types";
@@ -78,6 +79,7 @@ async function ensambleCliente(row: Record<string, unknown>): Promise<Cliente> {
     googleReviewUrl: row.google_review_url as string,
     busquedaClave: row.busqueda_clave as string,
     fee: Number(row.fee),
+    tonoMarca: (row.tono_marca as TonoMarca) ?? "cercano",
     historico: historico.map(mapMetrica),
     ventasNFC: ventasNFC.map(mapVenta),
   };
@@ -143,8 +145,8 @@ export async function crearCliente(
   }
   const codigoAcceso = generarCodigo();
   await sql`
-    INSERT INTO comercios (id, codigo_acceso, nombre, rubro, zona, plan, estado, contacto, google_review_url, busqueda_clave, fee, fecha_alta)
-    VALUES (${id}, ${codigoAcceso}, ${datos.nombre}, ${datos.rubro}, ${datos.zona}, ${datos.plan}, ${datos.estado}, ${datos.contacto}, ${datos.googleReviewUrl}, ${datos.busquedaClave}, ${datos.fee}, ${datos.fechaAlta})
+    INSERT INTO comercios (id, codigo_acceso, nombre, rubro, zona, plan, estado, contacto, google_review_url, busqueda_clave, fee, tono_marca, fecha_alta)
+    VALUES (${id}, ${codigoAcceso}, ${datos.nombre}, ${datos.rubro}, ${datos.zona}, ${datos.plan}, ${datos.estado}, ${datos.contacto}, ${datos.googleReviewUrl}, ${datos.busquedaClave}, ${datos.fee}, ${datos.tonoMarca ?? "cercano"}, ${datos.fechaAlta})
   `;
   // link de mostrador por defecto, para que el gestor de links no arranque vacío
   await sql`
@@ -174,7 +176,8 @@ export async function actualizarCliente(
       contacto = ${nuevo.contacto},
       google_review_url = ${nuevo.googleReviewUrl},
       busqueda_clave = ${nuevo.busquedaClave},
-      fee = ${nuevo.fee}
+      fee = ${nuevo.fee},
+      tono_marca = ${nuevo.tonoMarca}
     WHERE id = ${id}
   `;
   const c = await getCliente(id);
