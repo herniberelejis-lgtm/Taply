@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getClientes } from "@/lib/db";
 import { metricaActual, citasIA, ingresoNFC } from "@/lib/types";
 import { fmtARS } from "@/lib/format";
+import { accionEliminarCliente } from "@/app/actions";
 import {
   Card,
   PageHeader,
@@ -35,8 +36,8 @@ export default async function ClientesPage() {
         {ordenados.map((c) => {
           const m = metricaActual(c);
           return (
-            <Link key={c.id} href={`/admin/clientes/${c.id}`}>
-              <Card className="h-full transition-shadow hover:shadow-md">
+            <Card key={c.id} className="h-full transition-shadow hover:shadow-md">
+              <Link href={`/admin/clientes/${c.id}`}>
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <div className="font-semibold text-slate-900">{c.nombre}</div>
@@ -60,9 +61,9 @@ export default async function ClientesPage() {
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-[11px] uppercase text-slate-400">Maps</dt>
+                    <dt className="text-[11px] uppercase text-slate-400">Visitas</dt>
                     <dd className="text-sm font-semibold text-slate-800">
-                      {m ? `#${m.posicionMaps}` : "—"}
+                      {m?.visitasPerfil ?? "—"}
                     </dd>
                   </div>
                   <div>
@@ -77,8 +78,32 @@ export default async function ClientesPage() {
                   <span>Abono {fmtARS(c.fee)}</span>
                   <span>NFC {fmtARS(ingresoNFC(c))}</span>
                 </div>
-              </Card>
-            </Link>
+              </Link>
+
+              <details className="mt-3 border-t border-slate-100 pt-2">
+                <summary className="cursor-pointer text-xs text-rose-500 hover:text-rose-700">
+                  Eliminar cliente
+                </summary>
+                <form action={accionEliminarCliente} className="mt-2 space-y-2">
+                  <input type="hidden" name="id" value={c.id} />
+                  <p className="text-[11px] text-slate-500">
+                    Escribí <b>{c.nombre}</b> para confirmar. Borra todo (reseñas,
+                    métricas, links, portal) y no se puede deshacer.
+                  </p>
+                  <input
+                    name="confirmarNombre"
+                    placeholder={c.nombre}
+                    className="w-full rounded-lg border border-slate-300 px-2 py-1 text-xs"
+                  />
+                  <button
+                    type="submit"
+                    className="w-full rounded-lg bg-rose-600 px-2 py-1.5 text-xs font-medium text-white hover:bg-rose-700"
+                  >
+                    Borrar definitivamente
+                  </button>
+                </form>
+              </details>
+            </Card>
           );
         })}
       </div>

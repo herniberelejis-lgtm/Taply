@@ -72,10 +72,10 @@ export default async function ReporteClientePage({
             cambio={prev ? deltaTexto(m.resenasNuevas, prev.resenasNuevas) : undefined}
           />
           <Metrica
-            label="Posición en Maps"
-            valor={`#${m.posicionMaps}`}
-            sub={`“${c.busquedaClave}”`}
-            cambio={prev ? deltaTexto(m.posicionMaps, prev.posicionMaps, true) : undefined}
+            label="Visitas al perfil"
+            valor={fmtNum(m.visitasPerfil)}
+            sub="Google Business Profile"
+            cambio={prev ? deltaTexto(m.visitasPerfil, prev.visitasPerfil) : undefined}
           />
           {esPremium ? (
             <Metrica

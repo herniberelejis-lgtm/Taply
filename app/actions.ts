@@ -73,6 +73,20 @@ export async function accionActualizarCliente(fd: FormData): Promise<void> {
   redirect(`/admin/clientes/${id}`);
 }
 
+export async function accionEliminarCliente(fd: FormData): Promise<void> {
+  await requireAdmin();
+  const id = str(fd, "id");
+  const nombreConfirmado = str(fd, "confirmarNombre");
+  const cliente = await db.getCliente(id);
+  if (!cliente) throw new Error("Cliente no encontrado.");
+  if (nombreConfirmado.trim() !== cliente.nombre.trim()) {
+    throw new Error("El nombre no coincide — no se borró nada.");
+  }
+  await db.eliminarCliente(id);
+  revalidatePath("/", "layout");
+  redirect("/admin/clientes");
+}
+
 export async function accionSincronizarGoogle(fd: FormData): Promise<void> {
   await requireAdmin();
   const id = str(fd, "id");
@@ -99,7 +113,6 @@ export async function accionGuardarMetrica(fd: FormData): Promise<void> {
     resenasNuevas: num(fd, "resenasNuevas"),
     resenasTotal: num(fd, "resenasTotal"),
     ratingPromedio: num(fd, "ratingPromedio"),
-    posicionMaps: num(fd, "posicionMaps"),
     visitasPerfil: num(fd, "visitasPerfil"),
     llamadas: num(fd, "llamadas"),
     clicsComoLlegar: num(fd, "clicsComoLlegar"),

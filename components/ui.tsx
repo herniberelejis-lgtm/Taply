@@ -89,7 +89,7 @@ export function Sparkline({
   values: number[];
   width?: number;
   height?: number;
-  invert?: boolean; // true cuando "menos es mejor" (p.ej. posición en Maps)
+  invert?: boolean; // true cuando "menos es mejor" para esta métrica
 }) {
   if (values.length === 0) return null;
   if (values.length === 1) {

@@ -68,30 +68,18 @@ export default async function MetricasPage({
             </Field>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <Field label="Rating promedio" hint="1.0 a 5.0">
-              <input
-                name="ratingPromedio"
-                type="number"
-                min={1}
-                max={5}
-                step={0.1}
-                required
-                defaultValue={ultima?.ratingPromedio}
-                className={inputCls}
-              />
-            </Field>
-            <Field label="Posición en Maps" hint="para la búsqueda clave">
-              <input
-                name="posicionMaps"
-                type="number"
-                min={1}
-                required
-                defaultValue={ultima?.posicionMaps}
-                className={inputCls}
-              />
-            </Field>
-          </div>
+          <Field label="Rating promedio" hint="1.0 a 5.0">
+            <input
+              name="ratingPromedio"
+              type="number"
+              min={1}
+              max={5}
+              step={0.1}
+              required
+              defaultValue={ultima?.ratingPromedio}
+              className={inputCls}
+            />
+          </Field>
 
           <div className="grid grid-cols-3 gap-4">
             <Field label="Visitas al perfil">
@@ -140,7 +128,6 @@ export default async function MetricasPage({
                   <th className="px-4 py-3 font-medium">Mes</th>
                   <th className="px-4 py-3 font-medium">Reseñas</th>
                   <th className="px-4 py-3 font-medium">Rating</th>
-                  <th className="px-4 py-3 font-medium">Maps</th>
                   {esPremium && <th className="px-4 py-3 font-medium">Citas IA</th>}
                   <th className="px-4 py-3" />
                 </tr>
@@ -156,9 +143,6 @@ export default async function MetricasPage({
                     </td>
                     <td className="px-4 py-2.5 tabular-nums text-slate-600">
                       {h.ratingPromedio.toFixed(1)}
-                    </td>
-                    <td className="px-4 py-2.5 tabular-nums text-slate-600">
-                      #{h.posicionMaps}
                     </td>
                     {esPremium && (
                       <td className="px-4 py-2.5 tabular-nums text-slate-600">

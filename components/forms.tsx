@@ -183,7 +183,7 @@ export function ClienteForm({
 
       <Field
         label="Búsqueda clave"
-        hint="La búsqueda en la que se mide la posición en Maps."
+        hint="Cómo lo buscaría un cliente — se usa para armar las preguntas del Audit GEO."
       >
         <input
           name="busquedaClave"

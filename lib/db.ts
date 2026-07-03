@@ -41,7 +41,6 @@ function mapMetrica(r: Record<string, unknown>): MetricaMensual {
     resenasNuevas: Number(r.resenas_nuevas),
     resenasTotal: Number(r.resenas_total),
     ratingPromedio: Number(r.rating_promedio),
-    posicionMaps: Number(r.posicion_maps),
     visitasPerfil: Number(r.visitas_perfil),
     llamadas: Number(r.llamadas),
     clicsComoLlegar: Number(r.clics_como_llegar),
@@ -197,12 +196,19 @@ export async function actualizarCliente(
   return c;
 }
 
+/** Borra el cliente y todo lo que dependía de él (reseñas, links, taps,
+ * métricas, feedback, checklist, audits, competencia) — encadenado por
+ * ON DELETE CASCADE en el schema. No se puede deshacer. */
+export async function eliminarCliente(id: string): Promise<void> {
+  await sql`DELETE FROM comercios WHERE id = ${id}`;
+}
+
 /** Trae rating/reseñas actuales de Google Places API y los guarda — tanto
  * en el snapshot "en vivo" (comercios.rating_google/resenas_google) como
  * en la métrica del mes en curso, para que "Detalle mensual" y el gráfico
  * de evolución dejen de depender de una carga manual aparte. "Reseñas
  * nuevas" se calcula solo, comparando contra el total del mes anterior.
- * Posición en Maps / visitas / llamadas NO se tocan acá — siguen manuales. */
+ * Visitas/llamadas no se tocan acá — eso lo hace sincronizarRendimiento. */
 export async function sincronizarGoogle(id: string): Promise<boolean> {
   const rows = await sql`SELECT google_place_id FROM comercios WHERE id = ${id}`;
   const placeId = rows[0]?.google_place_id as string | undefined;
@@ -332,13 +338,12 @@ export async function sincronizarRendimientoTodos(): Promise<{ total: number; ac
 
 export async function guardarMetrica(id: string, m: MetricaMensual): Promise<Cliente> {
   await sql`
-    INSERT INTO metricas_mensuales (comercio_id, mes, resenas_nuevas, resenas_total, rating_promedio, posicion_maps, visitas_perfil, llamadas, clics_como_llegar, citas_chatgpt, citas_copilot, citas_perplexity)
-    VALUES (${id}, ${m.mes}, ${m.resenasNuevas}, ${m.resenasTotal}, ${m.ratingPromedio}, ${m.posicionMaps}, ${m.visitasPerfil}, ${m.llamadas}, ${m.clicsComoLlegar}, ${m.citasChatGPT ?? null}, ${m.citasCopilot ?? null}, ${m.citasPerplexity ?? null})
+    INSERT INTO metricas_mensuales (comercio_id, mes, resenas_nuevas, resenas_total, rating_promedio, visitas_perfil, llamadas, clics_como_llegar, citas_chatgpt, citas_copilot, citas_perplexity)
+    VALUES (${id}, ${m.mes}, ${m.resenasNuevas}, ${m.resenasTotal}, ${m.ratingPromedio}, ${m.visitasPerfil}, ${m.llamadas}, ${m.clicsComoLlegar}, ${m.citasChatGPT ?? null}, ${m.citasCopilot ?? null}, ${m.citasPerplexity ?? null})
     ON CONFLICT (comercio_id, mes) DO UPDATE SET
       resenas_nuevas = EXCLUDED.resenas_nuevas,
       resenas_total = EXCLUDED.resenas_total,
       rating_promedio = EXCLUDED.rating_promedio,
-      posicion_maps = EXCLUDED.posicion_maps,
       visitas_perfil = EXCLUDED.visitas_perfil,
       llamadas = EXCLUDED.llamadas,
       clics_como_llegar = EXCLUDED.clics_como_llegar,

@@ -37,13 +37,12 @@ for (const c of seedClientes) {
 
   for (const h of c.historico) {
     lines.push(
-      `INSERT INTO metricas_mensuales (comercio_id, mes, resenas_nuevas, resenas_total, rating_promedio, posicion_maps, visitas_perfil, llamadas, clics_como_llegar, citas_chatgpt, citas_copilot, citas_perplexity) VALUES (${[
+      `INSERT INTO metricas_mensuales (comercio_id, mes, resenas_nuevas, resenas_total, rating_promedio, visitas_perfil, llamadas, clics_como_llegar, citas_chatgpt, citas_copilot, citas_perplexity) VALUES (${[
         esc(c.id),
         esc(h.mes),
         esc(h.resenasNuevas),
         esc(h.resenasTotal),
         esc(h.ratingPromedio),
-        esc(h.posicionMaps),
         esc(h.visitasPerfil),
         esc(h.llamadas),
         esc(h.clicsComoLlegar),

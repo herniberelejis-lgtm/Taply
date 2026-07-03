@@ -66,7 +66,11 @@ export default function AnalyticsView({ clientes }: { clientes: Cliente[] }) {
         sum(prev.map((m) => m?.visitasPerfil ?? 0)),
       ),
       visitasActual: sum(act.map((m) => m?.visitasPerfil ?? 0)),
-      localPack: act.filter((m) => m !== undefined && m.posicionMaps <= 3).length,
+      llamadas: delta(
+        sum(act.map((m) => m?.llamadas ?? 0)),
+        sum(prev.map((m) => m?.llamadas ?? 0)),
+      ),
+      llamadasActual: sum(act.map((m) => m?.llamadas ?? 0)),
     };
   }, [visibles, mesActual, mesPrevio]);
 
@@ -94,13 +98,13 @@ export default function AnalyticsView({ clientes }: { clientes: Cliente[] }) {
     sum(visibles.map((c) => metricaDe(c, m)?.visitasPerfil ?? 0)),
   );
 
-  const posiciones = visibles
+  const ratings = visibles
     .map((c) => ({
       label: c.nombre,
-      value: metricaDe(c, mesActual)?.posicionMaps ?? 0,
+      value: metricaDe(c, mesActual)?.ratingPromedio ?? 0,
     }))
     .filter((d) => d.value > 0)
-    .sort((a, b) => a.value - b.value);
+    .sort((a, b) => b.value - a.value);
 
   const nfcPorFormato = useMemo(() => {
     const acc = new Map<string, number>();
@@ -178,9 +182,9 @@ export default function AnalyticsView({ clientes }: { clientes: Cliente[] }) {
           delta={deltaKpi(kpi.visitas)}
         />
         <Kpi
-          label="En el Local Pack"
-          value={`${kpi.localPack} de ${visibles.length}`}
-          hint="posición ≤ #3 en Maps"
+          label="Llamadas (mes)"
+          value={fmtNum(kpi.llamadasActual)}
+          delta={deltaKpi(kpi.llamadas)}
         />
       </div>
 
@@ -239,19 +243,19 @@ export default function AnalyticsView({ clientes }: { clientes: Cliente[] }) {
         </ChartCard>
 
         <ChartCard
-          title="Posición en Google Maps"
-          subtitle={`Ranking actual para la búsqueda clave de cada cliente${mesActual ? ` · ${fmtMes(mesActual)}` : ""} · menos es mejor`}
+          title="Rating promedio por cliente"
+          subtitle={`Rating actual de cada cliente${mesActual ? ` · ${fmtMes(mesActual)}` : ""}`}
           table={{
-            head: ["Cliente", "Posición"],
-            rows: posiciones.map((d) => [d.label, `#${d.value}`]),
+            head: ["Cliente", "Rating"],
+            rows: ratings.map((d) => [d.label, d.value.toFixed(1)]),
           }}
         >
           <HBars
-            items={posiciones}
+            items={ratings}
             color={SERIES[0]}
-            format={(v) => `#${v}`}
-            refValue={3}
-            refLabel="Local Pack (≤ #3)"
+            format={(v) => v.toFixed(1)}
+            refValue={4.5}
+            refLabel="Buen rating (≥ 4.5)"
           />
         </ChartCard>
 

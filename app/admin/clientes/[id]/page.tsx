@@ -39,7 +39,6 @@ export default async function ClienteDetallePage({
   const esPremium = c.plan === "Premium";
 
   const dResenas = delta(m?.resenasNuevas ?? 0, prev?.resenasNuevas ?? 0);
-  const dMaps = delta(m?.posicionMaps ?? 0, prev?.posicionMaps ?? 0);
   const dVisitas = delta(m?.visitasPerfil ?? 0, prev?.visitasPerfil ?? 0);
   const dCitas = delta(citasIA(m), citasIA(prev));
 
@@ -166,12 +165,9 @@ export default async function ClienteDetallePage({
             Búsqueda clave
           </div>
           <div className="mt-1 text-sm text-slate-800">“{c.busquedaClave}”</div>
-          <div className="mt-2 text-xs text-slate-500">
-            Posición actual en Maps:{" "}
-            <span className="font-medium text-slate-700">
-              #{m?.posicionMaps ?? "—"}
-            </span>
-          </div>
+          <p className="mt-2 text-xs text-slate-500">
+            Usada para armar las preguntas del Audit GEO.
+          </p>
         </Card>
         <Card>
           <div className="text-xs font-medium uppercase tracking-wide text-slate-500">
@@ -265,7 +261,7 @@ export default async function ClienteDetallePage({
       </Card>
 
       {/* KPIs del mes */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
         <Kpi
           label="Reseñas nuevas"
           value={fmtNum(m?.resenasNuevas ?? 0)}
@@ -274,16 +270,6 @@ export default async function ClienteDetallePage({
             dir: dResenas.dir,
             text: `${dResenas.valor >= 0 ? "+" : ""}${dResenas.valor} vs mes previo`,
             good: dResenas.dir === "up",
-          }}
-        />
-        <Kpi
-          label="Posición en Maps"
-          value={`#${m?.posicionMaps ?? "—"}`}
-          delta={{
-            // menos es mejor: bajar la posición (dir down) es bueno
-            dir: dMaps.dir,
-            text: `${dMaps.valor >= 0 ? "+" : ""}${dMaps.valor} vs mes previo`,
-            good: dMaps.dir === "down",
           }}
         />
         <Kpi
@@ -335,15 +321,13 @@ export default async function ClienteDetallePage({
         <Card>
           <div className="mb-3 flex items-center justify-between">
             <span className="text-sm font-medium text-slate-700">
-              Posición en Google Maps
+              Visitas al perfil
             </span>
-            <span className="text-xs text-slate-400">menos es mejor</span>
           </div>
           <Sparkline
-            values={c.historico.map((h) => h.posicionMaps)}
+            values={c.historico.map((h) => h.visitasPerfil)}
             width={280}
             height={60}
-            invert
           />
         </Card>
       </div>
@@ -360,7 +344,6 @@ export default async function ClienteDetallePage({
               <th className="px-4 py-3 font-medium">Reseñas nuevas</th>
               <th className="px-4 py-3 font-medium">Total</th>
               <th className="px-4 py-3 font-medium">Rating</th>
-              <th className="px-4 py-3 font-medium">Maps</th>
               <th className="px-4 py-3 font-medium">Visitas</th>
               <th className="px-4 py-3 font-medium">Llamadas</th>
               {esPremium && <th className="px-4 py-3 font-medium">Citas IA</th>}
@@ -378,7 +361,6 @@ export default async function ClienteDetallePage({
                 <td className="px-4 py-3">{fmtNum(h.resenasNuevas)}</td>
                 <td className="px-4 py-3">{fmtNum(h.resenasTotal)}</td>
                 <td className="px-4 py-3">{h.ratingPromedio.toFixed(1)}</td>
-                <td className="px-4 py-3">#{h.posicionMaps}</td>
                 <td className="px-4 py-3">{fmtNum(h.visitasPerfil)}</td>
                 <td className="px-4 py-3">{fmtNum(h.llamadas)}</td>
                 {esPremium && (

@@ -37,7 +37,7 @@ CREATE TABLE IF NOT EXISTS metricas_mensuales (
   resenas_nuevas   INTEGER NOT NULL DEFAULT 0,
   resenas_total    INTEGER NOT NULL DEFAULT 0,
   rating_promedio  NUMERIC NOT NULL DEFAULT 0,
-  posicion_maps    INTEGER NOT NULL DEFAULT 0,
+  posicion_maps    INTEGER NOT NULL DEFAULT 0,  -- legacy: la app ya no la lee ni la escribe
   visitas_perfil   INTEGER NOT NULL DEFAULT 0,
   llamadas         INTEGER NOT NULL DEFAULT 0,
   clics_como_llegar INTEGER NOT NULL DEFAULT 0,

@@ -121,7 +121,7 @@ export default async function DashboardPage() {
               <th className="px-4 py-3 font-medium">Plan</th>
               <th className="px-4 py-3 font-medium">Estado</th>
               <th className="px-4 py-3 font-medium">Rating</th>
-              <th className="px-4 py-3 font-medium">Maps</th>
+              <th className="px-4 py-3 font-medium">Visitas</th>
               <th className="px-4 py-3 font-medium">Reseñas (5m)</th>
             </tr>
           </thead>
@@ -162,7 +162,7 @@ function Row({ c }: { c: Cliente }) {
       </td>
       <td className="px-4 py-3">
         {m ? (
-          <span className="font-medium text-slate-700">#{m.posicionMaps}</span>
+          <span className="font-medium text-slate-700">{m.visitasPerfil}</span>
         ) : (
           "—"
         )}

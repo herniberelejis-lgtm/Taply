@@ -41,7 +41,6 @@ export interface MetricaMensual {
   resenasNuevas: number;
   resenasTotal: number;
   ratingPromedio: number; // 1..5
-  posicionMaps: number; // ranking en el Local Pack para la búsqueda clave (1 = primero)
   visitasPerfil: number;
   llamadas: number;
   clicsComoLlegar: number;
