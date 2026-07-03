@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 import {
   getClientePorCodigo,
   getTapsDelMesActual,
+  getTapsPorDia,
+  getLinks,
   getFeedback,
   getChecklist,
   getAudits,
@@ -15,6 +17,7 @@ import { fmtMes, fmtNum, delta } from "@/lib/format";
 import { recomendacionDelMes } from "@/lib/recomendacion";
 import { waUrl } from "@/lib/whatsapp";
 import { Card, Kpi, Stars, Sparkline, PlanBadge } from "@/components/ui";
+import TapsChart from "@/components/TapsChart";
 
 export const dynamic = "force-dynamic";
 
@@ -48,8 +51,10 @@ export default async function PortalPage({
   const c = await getClientePorCodigo(codigo);
   if (!c || c.estado === "baja") notFound();
 
-  const [tapsDelMes, feedback, checklist, audits] = await Promise.all([
+  const [tapsDelMes, tapsPorDia, links, feedback, checklist, audits] = await Promise.all([
     getTapsDelMesActual(c.id),
+    getTapsPorDia(c.id, 14),
+    getLinks(c.id),
     getFeedback(c.id),
     getChecklist(c.id),
     getAudits(c.id),
@@ -67,6 +72,12 @@ export default async function PortalPage({
     ? Math.round((checklistHechos / checklist.length) * 100)
     : 0;
   const ultimosAudits = audits.slice(0, 3);
+
+  const diasConTaps = [...new Set(tapsPorDia.map((d) => d.fecha))].sort();
+  const valoresTaps = diasConTaps.map((d) => tapsPorDia.find((x) => x.fecha === d)?.taps ?? 0);
+  const etiquetasTaps = diasConTaps.map((d) => d.slice(5).replace("-", "/"));
+  const linksConTaps = [...links].sort((a, b) => b.taps - a.taps);
+  const totalTapsHistorico = links.reduce((acc, l) => acc + l.taps, 0);
 
   const dResenas = delta(m?.resenasNuevas ?? 0, prev?.resenasNuevas ?? 0);
   const dMaps = delta(m?.posicionMaps ?? 0, prev?.posicionMaps ?? 0);
@@ -134,9 +145,12 @@ export default async function PortalPage({
 
       <main className="mx-auto max-w-4xl px-6 py-8">
         {/* En vivo: no depende de que se hayan cargado métricas del mes */}
-        <h2 id="en-vivo" className="mb-3 scroll-mt-4 text-sm font-semibold text-slate-900">
+        <h2 id="en-vivo" className="mb-1 scroll-mt-4 text-sm font-semibold text-slate-900">
           En vivo
         </h2>
+        <p className="mb-3 text-xs text-slate-500">
+          Esto se actualiza solo, apenas pasa — nadie tiene que cargar nada.
+        </p>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <Card>
             <p className="text-sm font-medium text-slate-700">
@@ -163,6 +177,49 @@ export default async function PortalPage({
             </p>
           </Card>
         </div>
+
+        {diasConTaps.length > 0 && (
+          <div className="mt-4">
+            <TapsChart labels={etiquetasTaps} values={valoresTaps} tabla={diasConTaps.map((d, i) => [d, String(valoresTaps[i])])} />
+          </div>
+        )}
+
+        {linksConTaps.length > 1 && totalTapsHistorico > 0 && (
+          <Card className="mt-4">
+            <p className="text-sm font-medium text-slate-700">
+              Taps por cartel
+            </p>
+            <p className="mt-0.5 text-xs text-slate-500">
+              histórico total, desde que se instaló cada uno
+            </p>
+            <div className="mt-3 space-y-2">
+              {linksConTaps.map((l) => (
+                <div key={l.id} className="flex items-center gap-3">
+                  <span className="w-28 shrink-0 truncate text-xs text-slate-600">{l.etiqueta}</span>
+                  <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-100">
+                    <div
+                      className="h-full rounded-full bg-brand"
+                      style={{ width: totalTapsHistorico ? `${Math.max(4, (l.taps / totalTapsHistorico) * 100)}%` : "0%" }}
+                    />
+                  </div>
+                  <span className="w-8 shrink-0 text-right text-xs font-medium tabular-nums text-slate-700">
+                    {l.taps}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </Card>
+        )}
+
+        {diasConTaps.length === 0 && feedback.length === 0 && (
+          <Card className="mt-4">
+            <p className="text-sm text-slate-600">
+              Todavía no hay actividad del cartel. En cuanto alguien lo
+              toque por primera vez, vas a ver acá el gráfico de taps y
+              cualquier feedback que deje.
+            </p>
+          </Card>
+        )}
 
         {/* Feedback privado: el contenido real, no solo el número */}
         {feedback.length > 0 && (
