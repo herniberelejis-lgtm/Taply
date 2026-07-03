@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { Cliente } from "@/lib/types";
+import GooglePlaceIdField from "@/components/GooglePlaceIdField";
 
 // Primitivas de formulario (server-safe) + el formulario de cliente
 // compartido entre alta y edición.
@@ -165,14 +166,9 @@ export function ClienteForm({
 
       <Field
         label="Google Place ID"
-        hint="Opcional. Con esto cargado, el rating y las reseñas se actualizan solos todos los días. Se consigue con el 'Place ID Finder' de Google o del link de reseñas si tiene ?placeid=..."
+        hint="Opcional. Con esto cargado, el rating y las reseñas se actualizan solos todos los días."
       >
-        <input
-          name="googlePlaceId"
-          defaultValue={cliente?.googlePlaceId}
-          placeholder="ChIJu4gNLQCjMpQRKW0UbexmsHE"
-          className={inputCls}
-        />
+        <GooglePlaceIdField defaultValue={cliente?.googlePlaceId} />
       </Field>
 
       <Field

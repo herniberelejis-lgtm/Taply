@@ -193,16 +193,19 @@ export async function actualizarCliente(
   return c;
 }
 
-/** Trae rating/reseñas actuales de Google Places API y los guarda. Devuelve
- * false sin tirar error si falta la API key o el comercio no tiene place_id
- * — así el sync masivo del cron no se corta por un solo cliente sin
- * configurar. */
+/** Trae rating/reseñas actuales de Google Places API y los guarda — tanto
+ * en el snapshot "en vivo" (comercios.rating_google/resenas_google) como
+ * en la métrica del mes en curso, para que "Detalle mensual" y el gráfico
+ * de evolución dejen de depender de una carga manual aparte. "Reseñas
+ * nuevas" se calcula solo, comparando contra el total del mes anterior.
+ * Posición en Maps / visitas / llamadas NO se tocan acá — siguen manuales. */
 export async function sincronizarGoogle(id: string): Promise<boolean> {
   const rows = await sql`SELECT google_place_id FROM comercios WHERE id = ${id}`;
   const placeId = rows[0]?.google_place_id as string | undefined;
   if (!placeId) return false;
   const stats = await fetchGooglePlaceStats(placeId);
   if (!stats) return false;
+
   await sql`
     UPDATE comercios SET
       rating_google = ${stats.rating},
@@ -210,6 +213,25 @@ export async function sincronizarGoogle(id: string): Promise<boolean> {
       google_sync_en = now()
     WHERE id = ${id}
   `;
+
+  const mesActual = new Date().toISOString().slice(0, 7); // 'YYYY-MM'
+  const anteriores = await sql`
+    SELECT resenas_total FROM metricas_mensuales
+    WHERE comercio_id = ${id} AND mes < ${mesActual}
+    ORDER BY mes DESC LIMIT 1
+  `;
+  const totalAnterior = anteriores[0] ? Number(anteriores[0].resenas_total) : stats.totalReseñas;
+  const resenasNuevas = Math.max(0, stats.totalReseñas - totalAnterior);
+
+  await sql`
+    INSERT INTO metricas_mensuales (comercio_id, mes, resenas_nuevas, resenas_total, rating_promedio)
+    VALUES (${id}, ${mesActual}, ${resenasNuevas}, ${stats.totalReseñas}, ${stats.rating})
+    ON CONFLICT (comercio_id, mes) DO UPDATE SET
+      resenas_nuevas = EXCLUDED.resenas_nuevas,
+      resenas_total = EXCLUDED.resenas_total,
+      rating_promedio = EXCLUDED.rating_promedio
+  `;
+
   return true;
 }
 
