@@ -20,16 +20,38 @@ CREATE TABLE IF NOT EXISTS comercios (
   google_location    TEXT NOT NULL DEFAULT '',        -- ficha en Business Profile ("locations/…"), se vincula sola
   rating_google       NUMERIC,                        -- último rating traído automáticamente
   resenas_google      INTEGER,                        -- último total de reseñas traído automáticamente
-  google_sync_en      TIMESTAMPTZ                      -- cuándo se sincronizó por última vez
+  google_sync_en      TIMESTAMPTZ,                     -- cuándo se sincronizó por última vez
+  google_refresh_token TEXT NOT NULL DEFAULT '',       -- OAuth propio del cliente (Business Profile), no de la agencia
+  google_conectado_en  TIMESTAMPTZ                     -- cuándo autorizó su cuenta de Google — sirve para el aviso de reconexión semanal (app en modo Testing)
 );
 
--- Ajustes de la agencia (clave/valor). Hoy guarda el refresh token de la
--- cuenta de Google conectada para la Business Profile Performance API.
+-- Ajustes de la agencia (clave/valor). Uso general para configuración suelta.
 CREATE TABLE IF NOT EXISTS ajustes (
   clave           TEXT PRIMARY KEY,
   valor           TEXT NOT NULL,
   actualizado_en  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Cuentas de Google admitidas para entrar al panel interno (allowlist del
+-- equipo). El login con contraseña sigue funcionando como respaldo, pero
+-- solo el login con Google deja identificada a la persona en `auditoria`.
+CREATE TABLE IF NOT EXISTS admins (
+  email       TEXT PRIMARY KEY,
+  nombre      TEXT NOT NULL DEFAULT '',
+  creado_en   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Registro de acciones del equipo dentro del panel — qué se hizo y quién
+-- (si entró con Google; si entró con la contraseña compartida queda como
+-- "equipo (sin identificar)").
+CREATE TABLE IF NOT EXISTS auditoria (
+  id           BIGSERIAL PRIMARY KEY,
+  admin_email  TEXT NOT NULL DEFAULT '',
+  accion       TEXT NOT NULL,
+  detalle      TEXT NOT NULL DEFAULT '',
+  creado_en    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_auditoria_fecha ON auditoria(creado_en DESC);
 
 CREATE TABLE IF NOT EXISTS metricas_mensuales (
   comercio_id      TEXT NOT NULL REFERENCES comercios(id) ON DELETE CASCADE,

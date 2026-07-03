@@ -1,17 +1,19 @@
 import "server-only";
 
-// OAuth de Google para la Business Profile Performance API (visitas al
-// perfil, llamadas, clics "cómo llegar"). A diferencia de Places API (que
-// alcanza con una API key), estos datos son privados de cada ficha: Google
-// exige que una cuenta con acceso de administrador a la ficha autorice
-// con OAuth. El flujo acá es de UNA sola autorización para toda la
-// agencia: la cuenta de Google del admin (que debe ser administradora de
-// las fichas de sus clientes) autoriza una vez, guardamos el refresh
-// token en la tabla `ajustes`, y el cron lo usa a diario.
+// OAuth de Google, con dos usos distintos que comparten el mismo client
+// ID/secret pero piden scopes diferentes:
+// - GBP_SCOPE: cada CLIENTE autoriza con su propia cuenta de Google para
+//   que Taply lea las métricas de SU ficha de Business Profile (visitas,
+//   llamadas). Refresh token guardado por comercio.
+// - ADMIN_SCOPE: cada persona del EQUIPO inicia sesión en el panel con su
+//   cuenta de Google. No hace falta refresh token acá, solo confirmar de
+//   una vez quién es (id_token) — la sesión del panel se maneja con cookie
+//   propia después, como con la contraseña.
 
 const AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
 export const GBP_SCOPE = "https://www.googleapis.com/auth/business.manage";
+export const ADMIN_SCOPE = "openid email profile";
 
 export function oauthConfigurado(): boolean {
   return Boolean(
@@ -19,24 +21,39 @@ export function oauthConfigurado(): boolean {
   );
 }
 
-export function urlDeAutorizacion(redirectUri: string, state: string): string {
+export function urlDeAutorizacion(opts: {
+  redirectUri: string;
+  state: string;
+  scope: string;
+  /** access_type=offline + prompt=consent: pide refresh token (para poder
+   * traer datos sin que la persona esté presente). Solo hace falta para el
+   * flujo de conexión de Business Profile, no para el login del panel. */
+  offline?: boolean;
+}): string {
   const params = new URLSearchParams({
     client_id: process.env.GOOGLE_OAUTH_CLIENT_ID ?? "",
-    redirect_uri: redirectUri,
+    redirect_uri: opts.redirectUri,
     response_type: "code",
-    scope: GBP_SCOPE,
-    access_type: "offline", // pide refresh token (para el cron, sin humano)
-    prompt: "consent", // fuerza a Google a devolver refresh token siempre
-    state,
+    scope: opts.scope,
+    state: opts.state,
   });
+  if (opts.offline) {
+    params.set("access_type", "offline");
+    params.set("prompt", "consent"); // fuerza a Google a devolver refresh token siempre
+  }
   return `${AUTH_URL}?${params}`;
 }
 
-/** Canjea el code del callback por un refresh token. */
+interface CanjeResultado {
+  refreshToken: string | null;
+  idToken: string | null;
+}
+
+/** Canjea el code del callback por tokens. */
 export async function canjearCodigo(
   code: string,
   redirectUri: string,
-): Promise<string | null> {
+): Promise<CanjeResultado> {
   const res = await fetch(TOKEN_URL, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -51,10 +68,10 @@ export async function canjearCodigo(
   });
   if (!res.ok) {
     console.error(`OAuth: canje de código respondió ${res.status}`);
-    return null;
+    return { refreshToken: null, idToken: null };
   }
-  const data = (await res.json()) as { refresh_token?: string };
-  return data.refresh_token ?? null;
+  const data = (await res.json()) as { refresh_token?: string; id_token?: string };
+  return { refreshToken: data.refresh_token ?? null, idToken: data.id_token ?? null };
 }
 
 /** Access token de corta vida a partir del refresh token guardado. */
@@ -78,4 +95,21 @@ export async function accessTokenDesdeRefresh(
   }
   const data = (await res.json()) as { access_token?: string };
   return data.access_token ?? null;
+}
+
+/** Decodifica (sin volver a verificar firma) el id_token que Google acaba
+ * de devolvernos en un canje servidor-a-servidor por HTTPS — no pasó por
+ * el navegador, así que confiar en el payload acá es seguro. Solo se usa
+ * para leer el email/nombre de quien acaba de autenticarse. */
+export function decodificarIdToken(idToken: string): { email: string; nombre: string } | null {
+  try {
+    const payload = idToken.split(".")[1];
+    if (!payload) return null;
+    const json = Buffer.from(payload, "base64url").toString("utf-8");
+    const data = JSON.parse(json) as { email?: string; email_verified?: boolean; name?: string };
+    if (!data.email || data.email_verified === false) return null;
+    return { email: data.email.toLowerCase(), nombre: data.name ?? "" };
+  } catch {
+    return null;
+  }
 }

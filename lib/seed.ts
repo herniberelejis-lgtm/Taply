@@ -16,7 +16,7 @@ function serie(
 
 export const seedClientes: Omit<
   Cliente,
-  "tonoMarca" | "googlePlaceId" | "googleLocation" | "ratingGoogle" | "resenasGoogle" | "googleSyncEn"
+  "tonoMarca" | "googlePlaceId" | "googleLocation" | "ratingGoogle" | "resenasGoogle" | "googleSyncEn" | "googleConectadoEn"
 >[] = [
   {
     id: "barberia-guemes",

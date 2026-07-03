@@ -91,6 +91,9 @@ async function ensambleCliente(row: Record<string, unknown>): Promise<Cliente> {
     ratingGoogle: row.rating_google === null ? null : Number(row.rating_google),
     resenasGoogle: row.resenas_google === null ? null : Number(row.resenas_google),
     googleSyncEn: row.google_sync_en ? new Date(row.google_sync_en as string).toISOString() : null,
+    googleConectadoEn: row.google_conectado_en
+      ? new Date(row.google_conectado_en as string).toISOString()
+      : null,
   };
 }
 
@@ -143,7 +146,7 @@ function slugify(nombre: string): string {
 }
 
 export async function crearCliente(
-  datos: Omit<Cliente, "id" | "codigoAcceso" | "ventasNFC" | "historico" | "ratingGoogle" | "resenasGoogle" | "googleSyncEn" | "googleLocation">,
+  datos: Omit<Cliente, "id" | "codigoAcceso" | "ventasNFC" | "historico" | "ratingGoogle" | "resenasGoogle" | "googleSyncEn" | "googleLocation" | "googleConectadoEn">,
 ): Promise<Cliente> {
   let id = slugify(datos.nombre) || "comercio";
   // asegurar unicidad del id/slug
@@ -271,24 +274,46 @@ export async function setAjuste(clave: string, valor: string): Promise<void> {
 }
 
 // ---------- Rendimiento (Business Profile Performance API) ----------
+// Modelo por cliente: cada comercio autoriza con SU PROPIA cuenta de
+// Google desde su portal (/portal/[codigo] → "Conectar tu Google Business
+// Profile"), no con una cuenta de la agencia. Así el dato sigue llegando
+// aunque la agencia no administre la ficha, y queda listo para funcionar
+// sin fricción el día que la app esté verificada por Google.
 
-async function accessTokenGBP(): Promise<string | null> {
-  const refresh = await getAjuste("google_refresh_token");
+async function accessTokenGBPComercio(id: string): Promise<string | null> {
+  const rows = await sql`SELECT google_refresh_token FROM comercios WHERE id = ${id}`;
+  const refresh = rows[0]?.google_refresh_token as string | undefined;
   if (!refresh) return null;
   return accessTokenDesdeRefresh(refresh);
 }
 
+/** Guarda el refresh token que el cliente acaba de autorizar desde su
+ * portal. Se llama desde el callback de /api/portal/google/oauth. */
+export async function guardarTokenGoogleComercio(id: string, refreshToken: string): Promise<void> {
+  await sql`
+    UPDATE comercios SET google_refresh_token = ${refreshToken}, google_conectado_en = now()
+    WHERE id = ${id}
+  `;
+}
+
+/** Desconecta la cuenta de Google de un comercio (a pedido del cliente o
+ * del admin) — borra el refresh token y el vínculo de ficha ya resuelto. */
+export async function desconectarGoogleComercio(id: string): Promise<void> {
+  await sql`
+    UPDATE comercios SET google_refresh_token = '', google_location = '', google_conectado_en = NULL
+    WHERE id = ${id}
+  `;
+}
+
 /** Trae visitas al perfil, llamadas y clics "cómo llegar" del mes en curso
- * y los guarda en metricas_mensuales. Vincula la ficha sola la primera vez,
- * matcheando por place_id contra las ubicaciones que administra la cuenta
- * de Google conectada. Devuelve false (sin romper) si falta cualquier pieza:
- * OAuth sin conectar, sin place_id, o la cuenta no administra esa ficha. */
-export async function sincronizarRendimiento(
-  id: string,
-  tokenPrevio?: string,
-  ubicacionesPrevias?: Awaited<ReturnType<typeof listarUbicaciones>>,
-): Promise<boolean> {
-  const token = tokenPrevio ?? (await accessTokenGBP());
+ * y los guarda en metricas_mensuales, usando la cuenta de Google que ESE
+ * comercio conectó. Vincula la ficha sola la primera vez, matcheando por
+ * place_id contra las ubicaciones que administra esa cuenta. Devuelve false
+ * (sin romper) si falta cualquier pieza: sin conectar, sin place_id, la
+ * cuenta no administra esa ficha, o el refresh token venció (app en modo
+ * Testing: hay que reconectar cada ~7 días hasta que Google verifique la app). */
+export async function sincronizarRendimiento(id: string): Promise<boolean> {
+  const token = await accessTokenGBPComercio(id);
   if (!token) return false;
 
   const rows = await sql`SELECT google_place_id, google_location FROM comercios WHERE id = ${id}`;
@@ -298,7 +323,7 @@ export async function sincronizarRendimiento(
 
   if (!location) {
     if (!placeId) return false;
-    const ubicaciones = ubicacionesPrevias ?? (await listarUbicaciones(token));
+    const ubicaciones = await listarUbicaciones(token);
     const match = ubicaciones.find((u) => u.placeId === placeId);
     if (!match) return false;
     location = match.location;
@@ -321,17 +346,13 @@ export async function sincronizarRendimiento(
   return true;
 }
 
-/** Rendimiento de todos los comercios con place_id — para el cron diario.
- * Pide el token y la lista de fichas UNA vez y los reusa en todo el loop. */
+/** Rendimiento de todos los comercios que tengan su propia cuenta de Google
+ * conectada — para el cron diario. */
 export async function sincronizarRendimientoTodos(): Promise<{ total: number; actualizados: number }> {
-  const rows = await sql`SELECT id FROM comercios WHERE google_place_id != ''`;
-  if (rows.length === 0) return { total: 0, actualizados: 0 };
-  const token = await accessTokenGBP();
-  if (!token) return { total: rows.length, actualizados: 0 };
-  const ubicaciones = await listarUbicaciones(token);
+  const rows = await sql`SELECT id FROM comercios WHERE google_refresh_token != ''`;
   let actualizados = 0;
   for (const row of rows) {
-    if (await sincronizarRendimiento(row.id as string, token, ubicaciones)) actualizados += 1;
+    if (await sincronizarRendimiento(row.id as string)) actualizados += 1;
   }
   return { total: rows.length, actualizados };
 }
@@ -799,4 +820,83 @@ export async function eliminarCaptura(id: string, index: number): Promise<void> 
   const capturas = (rows[0].capturas as string[]) ?? [];
   capturas.splice(index, 1);
   await sql`UPDATE prospectos SET capturas = ${sql.json(capturas)} WHERE id = ${id}`;
+}
+
+// ---------- Administradores (login por Google, allowlist del equipo) ----------
+
+export interface Admin {
+  email: string;
+  nombre: string;
+  creadoEn: string;
+}
+
+function mapAdmin(r: Record<string, unknown>): Admin {
+  return {
+    email: r.email as string,
+    nombre: r.nombre as string,
+    creadoEn: String(r.creado_en),
+  };
+}
+
+export async function getAdmins(): Promise<Admin[]> {
+  const rows = await sql`SELECT * FROM admins ORDER BY creado_en ASC`;
+  return rows.map(mapAdmin);
+}
+
+export async function esAdminPermitido(email: string): Promise<boolean> {
+  const rows = await sql`SELECT 1 FROM admins WHERE lower(email) = lower(${email})`;
+  return rows.length > 0;
+}
+
+export async function agregarAdmin(email: string, nombre: string): Promise<void> {
+  const limpio = email.trim().toLowerCase();
+  if (!limpio) throw new Error("Falta el email.");
+  await sql`
+    INSERT INTO admins (email, nombre) VALUES (${limpio}, ${nombre})
+    ON CONFLICT (email) DO UPDATE SET nombre = ${nombre}
+  `;
+}
+
+export async function eliminarAdmin(email: string): Promise<void> {
+  await sql`DELETE FROM admins WHERE lower(email) = lower(${email})`;
+}
+
+// ---------- Auditoría ----------
+
+export interface EntradaAuditoria {
+  id: number;
+  adminEmail: string;
+  accion: string;
+  detalle: string;
+  creadoEn: string;
+}
+
+/** Registra una acción del panel. adminEmail viene null si quien actuó
+ * entró con la contraseña compartida (sin identidad) — se guarda como
+ * cadena vacía y la UI lo muestra como "equipo (sin identificar)". Nunca
+ * tira si falla: la auditoría no debe romper la acción real que registra. */
+export async function registrarAuditoria(
+  adminEmail: string | null,
+  accion: string,
+  detalle = "",
+): Promise<void> {
+  try {
+    await sql`
+      INSERT INTO auditoria (admin_email, accion, detalle)
+      VALUES (${adminEmail ?? ""}, ${accion}, ${detalle})
+    `;
+  } catch (err) {
+    console.error("No se pudo registrar en auditoría:", err);
+  }
+}
+
+export async function getAuditoria(limite = 200): Promise<EntradaAuditoria[]> {
+  const rows = await sql`SELECT * FROM auditoria ORDER BY creado_en DESC LIMIT ${limite}`;
+  return rows.map((r) => ({
+    id: Number(r.id),
+    adminEmail: r.admin_email as string,
+    accion: r.accion as string,
+    detalle: r.detalle as string,
+    creadoEn: String(r.creado_en),
+  }));
 }

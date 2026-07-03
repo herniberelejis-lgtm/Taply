@@ -42,14 +42,31 @@ function fechaCorta(v: string): string {
 // Portal del cliente: acceso por código privado, solo lectura, solo SUS
 // datos. Es la cara visible del servicio mensual — lo que el cliente paga
 // por ver. Sin navegación del panel interno.
+const MENSAJE_GOOGLE: Record<string, { texto: string; tono: "ok" | "error" }> = {
+  conectado: { texto: "Conectaste tu cuenta de Google. En un rato vas a ver visitas y llamadas acá.", tono: "ok" },
+  error: { texto: "No se pudo conectar — probá de nuevo.", tono: "error" },
+  cancelado: { texto: "Cancelaste la conexión con Google.", tono: "error" },
+  "no-configurado": { texto: "Esta función todavía no está disponible.", tono: "error" },
+};
+
 export default async function PortalPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ codigo: string }>;
+  searchParams: Promise<{ google?: string }>;
 }) {
   const { codigo } = await params;
+  const { google } = await searchParams;
   const c = await getClientePorCodigo(codigo);
   if (!c || c.estado === "baja") notFound();
+
+  const gbpConectado = Boolean(c.googleConectadoEn);
+  const diasConectado = c.googleConectadoEn
+    ? Math.floor((Date.now() - new Date(c.googleConectadoEn).getTime()) / (1000 * 60 * 60 * 24))
+    : null;
+  const gbpPorVencer = diasConectado !== null && diasConectado >= 6;
+  const mensajeGoogle = google ? MENSAJE_GOOGLE[google] : null;
 
   const [tapsDelMes, tapsPorDia, links, feedback, checklist, audits] = await Promise.all([
     getTapsDelMesActual(c.id),
@@ -143,6 +160,54 @@ export default async function PortalPage({
       </header>
 
       <main className="mx-auto max-w-4xl px-6 py-8">
+        {mensajeGoogle && (
+          <div
+            className={`mb-4 rounded-lg px-3 py-2 text-sm ${
+              mensajeGoogle.tono === "ok"
+                ? "bg-emerald-50 text-emerald-700"
+                : "bg-rose-50 text-rose-700"
+            }`}
+          >
+            {mensajeGoogle.texto}
+          </div>
+        )}
+
+        {/* Conexión con Google Business Profile: la autoriza el dueño de la
+            ficha (este cliente), no la agencia — así las visitas y llamadas
+            se traen solas sin que nadie tenga que cargar nada a mano. */}
+        <Card className="mb-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-medium text-slate-700">
+                Conectar tu Google Business Profile
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                {gbpConectado
+                  ? "Conectado — así traemos solas las visitas, llamadas y clics de “cómo llegar” de tu ficha."
+                  : "Autorizá con tu cuenta de Google (la que administra tu ficha) para que las visitas y llamadas se carguen solas, sin que nadie tenga que anotarlas a mano."}
+              </p>
+              {gbpConectado && (
+                <p className="mt-1 text-xs text-slate-400">
+                  Conectado {diasConectado === 0 ? "hoy" : `hace ${diasConectado} día${diasConectado === 1 ? "" : "s"}`}.
+                </p>
+              )}
+            </div>
+            <a
+              href={`/api/portal/google/oauth/start?codigo=${c.codigoAcceso}`}
+              className="shrink-0 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:border-slate-400"
+            >
+              {gbpConectado ? "Reconectar" : "Conectar con Google"}
+            </a>
+          </div>
+          {gbpPorVencer && (
+            <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
+              Todavía estamos terminando de verificar la app con Google —
+              mientras tanto, este permiso vence cada 7 días. Tocá
+              "Reconectar" una vez por semana para que no se corte.
+            </p>
+          )}
+        </Card>
+
         {/* En vivo: no depende de que se hayan cargado métricas del mes */}
         <h2 id="en-vivo" className="mb-1 scroll-mt-4 text-sm font-semibold text-slate-900">
           En vivo

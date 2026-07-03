@@ -75,6 +75,12 @@ export interface Cliente {
   ratingGoogle: number | null;
   resenasGoogle: number | null;
   googleSyncEn: string | null;
+  /** Cuándo el CLIENTE conectó su propia cuenta de Google (Business Profile),
+   * desde su portal — null si todavía no conectó. Mientras la app de Taply
+   * no esté verificada por Google, esa autorización expira ~7 días después
+   * y hay que reconectar. No incluye el refresh token (eso vive solo en la
+   * base, nunca se manda al cliente). */
+  googleConectadoEn: string | null;
 }
 
 /** Tono usado por el generador de respuestas sugeridas (lib/respuestas.ts). */

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import * as db from "@/lib/db";
-import { requireAdmin } from "@/lib/auth";
+import { requireAdmin, emailAdminActual } from "@/lib/auth";
 import type {
   DestinoLink,
   EstadoCliente,
@@ -31,6 +31,13 @@ function num(fd: FormData, key: string): number {
   return Number.isFinite(v) ? v : 0;
 }
 
+/** Deja rastro en /admin/auditoria de quién hizo qué. Con login por Google
+ * queda el email; con la contraseña compartida queda sin identificar. */
+async function auditar(accion: string, detalle = ""): Promise<void> {
+  const email = await emailAdminActual();
+  await db.registrarAuditoria(email, accion, detalle);
+}
+
 export async function accionCrearCliente(fd: FormData): Promise<void> {
   await requireAdmin();
   const nombre = str(fd, "nombre");
@@ -49,6 +56,7 @@ export async function accionCrearCliente(fd: FormData): Promise<void> {
     tonoMarca: (str(fd, "tonoMarca") || "cercano") as "cercano" | "formal",
     googlePlaceId: str(fd, "googlePlaceId"),
   });
+  await auditar("crear_cliente", `${cliente.nombre} (${cliente.id})`);
   revalidatePath("/", "layout");
   redirect(`/admin/clientes/${cliente.id}`);
 }
@@ -69,6 +77,7 @@ export async function accionActualizarCliente(fd: FormData): Promise<void> {
     tonoMarca: (str(fd, "tonoMarca") || "cercano") as "cercano" | "formal",
     googlePlaceId: str(fd, "googlePlaceId"),
   });
+  await auditar("editar_cliente", id);
   revalidatePath("/", "layout");
   redirect(`/admin/clientes/${id}`);
 }
@@ -83,8 +92,18 @@ export async function accionEliminarCliente(fd: FormData): Promise<void> {
     throw new Error("El nombre no coincide — no se borró nada.");
   }
   await db.eliminarCliente(id);
+  await auditar("eliminar_cliente", `${cliente.nombre} (${id})`);
   revalidatePath("/", "layout");
   redirect("/admin/clientes");
+}
+
+export async function accionDesconectarGoogleComercio(fd: FormData): Promise<void> {
+  await requireAdmin();
+  const id = str(fd, "id");
+  await db.desconectarGoogleComercio(id);
+  await auditar("desconectar_google_cliente", id);
+  revalidatePath("/", "layout");
+  redirect(`/admin/clientes/${id}`);
 }
 
 export async function accionSincronizarGoogle(fd: FormData): Promise<void> {
@@ -153,6 +172,7 @@ export async function accionRegenerarCodigo(fd: FormData): Promise<void> {
   await requireAdmin();
   const id = str(fd, "id");
   await db.regenerarCodigo(id);
+  await auditar("regenerar_codigo_portal", id);
   revalidatePath("/", "layout");
   redirect(`/admin/clientes/${id}`);
 }
@@ -197,6 +217,7 @@ export async function accionEliminarLink(fd: FormData): Promise<void> {
   const linkId = str(fd, "linkId");
   const comercioId = str(fd, "comercioId");
   await db.eliminarLink(linkId);
+  await auditar("eliminar_link", `${linkId} (${comercioId})`);
   revalidatePath("/", "layout");
   redirect(`/admin/clientes/${comercioId}/links`);
 }
@@ -304,6 +325,7 @@ export async function accionEliminarCompetidor(fd: FormData): Promise<void> {
   const id = Number(fd.get("id"));
   const comercioId = str(fd, "comercioId");
   await db.eliminarCompetidor(id);
+  await auditar("eliminar_competidor", `${id} (${comercioId})`);
   revalidatePath("/", "layout");
   redirect(`/admin/clientes/${comercioId}/auditoria`);
 }
@@ -342,9 +364,33 @@ export async function accionActualizarProspecto(fd: FormData): Promise<void> {
 
 export async function accionEliminarProspecto(fd: FormData): Promise<void> {
   await requireAdmin();
-  await db.eliminarProspecto(str(fd, "id"));
+  const id = str(fd, "id");
+  await db.eliminarProspecto(id);
+  await auditar("eliminar_prospecto", id);
   revalidatePath("/admin/prospectos");
   redirect("/admin/prospectos");
+}
+
+// ---------- Administradores (login por Google del equipo) ----------
+
+export async function accionAgregarAdmin(fd: FormData): Promise<void> {
+  await requireAdmin();
+  const email = str(fd, "email").toLowerCase();
+  const nombre = str(fd, "nombre");
+  if (!email.includes("@")) throw new Error("Email inválido.");
+  await db.agregarAdmin(email, nombre);
+  await auditar("agregar_admin", email);
+  revalidatePath("/admin/administradores");
+  redirect("/admin/administradores");
+}
+
+export async function accionEliminarAdmin(fd: FormData): Promise<void> {
+  await requireAdmin();
+  const email = str(fd, "email");
+  await db.eliminarAdmin(email);
+  await auditar("eliminar_admin", email);
+  revalidatePath("/admin/administradores");
+  redirect("/admin/administradores");
 }
 
 const CAPTURA_MAX_BYTES = 4 * 1024 * 1024; // 4MB por imagen — suficiente para una captura de pantalla

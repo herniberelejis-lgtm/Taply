@@ -161,11 +161,12 @@ privado, **Reseñas** (CRM), **Audits GEO**, **Checklist SEO** y
 | wa.me (WhatsApp) | ✅ hecho, sin API — links directos |
 | Respuestas sugeridas | ✅ hecho por plantilla, sin costo |
 | Audit GEO | ✅ hecho, manual asistido (vos pegás la pregunta en ChatGPT/Claude/Perplexity/Gemini gratis) |
-| Google Places API | ⏳ pendiente — traería rating de competidores automático |
+| Google Places API | ✅ hecho — rating/reseñas de cada cliente se sincronizan solos (cron diario) |
+| Google Business Profile (visitas/llamadas) | ✅ hecho, por cliente — cada cliente conecta su propia cuenta desde su portal. Mientras la app de Google no esté verificada, el permiso vence cada 7 días y hay que reconectar (aviso en el portal) |
+| Login de equipo con Google + auditoría | ✅ hecho — `/admin/administradores` (allowlist) y `/admin/actividad` (registro de acciones) |
 | Resend (email) | ⏳ pendiente — alertas por mail además de WhatsApp |
 | API de Anthropic | 🔌 enchufe listo, sin usar — respuestas/audits automáticos cuando decidas pagarla |
 | WhatsApp Cloud API | ❌ no planeado — requiere verificación de negocio en Meta, semanas de trámite |
-| Google Business Profile API | ❌ no planeado — requiere aprobación de Google |
 
 ## Pendientes conocidos
 

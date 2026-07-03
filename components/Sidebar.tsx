@@ -9,6 +9,8 @@ const nav = [
   { href: "/admin/clientes", label: "Clientes", icon: "☰" },
   { href: "/admin/prospectos", label: "Prospectos", icon: "◎" },
   { href: "/admin/reportes", label: "Reportes", icon: "▤" },
+  { href: "/admin/administradores", label: "Administradores", icon: "◇" },
+  { href: "/admin/actividad", label: "Actividad", icon: "≡" },
 ];
 
 export default function Sidebar() {
