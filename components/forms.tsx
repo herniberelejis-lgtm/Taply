@@ -164,6 +164,18 @@ export function ClienteForm({
       </Field>
 
       <Field
+        label="Google Place ID"
+        hint="Opcional. Con esto cargado, el rating y las reseñas se actualizan solos todos los días. Se consigue con el 'Place ID Finder' de Google o del link de reseñas si tiene ?placeid=..."
+      >
+        <input
+          name="googlePlaceId"
+          defaultValue={cliente?.googlePlaceId}
+          placeholder="ChIJu4gNLQCjMpQRKW0UbexmsHE"
+          className={inputCls}
+        />
+      </Field>
+
+      <Field
         label="Tono de marca"
         hint="Lo usa el generador de respuestas sugeridas del CRM."
       >

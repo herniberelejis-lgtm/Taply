@@ -47,6 +47,7 @@ export async function accionCrearCliente(fd: FormData): Promise<void> {
     busquedaClave: str(fd, "busquedaClave"),
     fee: num(fd, "fee"),
     tonoMarca: (str(fd, "tonoMarca") || "cercano") as "cercano" | "formal",
+    googlePlaceId: str(fd, "googlePlaceId"),
   });
   revalidatePath("/", "layout");
   redirect(`/admin/clientes/${cliente.id}`);
@@ -66,7 +67,21 @@ export async function accionActualizarCliente(fd: FormData): Promise<void> {
     busquedaClave: str(fd, "busquedaClave"),
     fee: num(fd, "fee"),
     tonoMarca: (str(fd, "tonoMarca") || "cercano") as "cercano" | "formal",
+    googlePlaceId: str(fd, "googlePlaceId"),
   });
+  revalidatePath("/", "layout");
+  redirect(`/admin/clientes/${id}`);
+}
+
+export async function accionSincronizarGoogle(fd: FormData): Promise<void> {
+  await requireAdmin();
+  const id = str(fd, "id");
+  const ok = await db.sincronizarGoogle(id);
+  if (!ok) {
+    throw new Error(
+      "No se pudo sincronizar — revisá que el comercio tenga Google Place ID cargado y que GOOGLE_PLACES_API_KEY esté configurada en Vercel.",
+    );
+  }
   revalidatePath("/", "layout");
   redirect(`/admin/clientes/${id}`);
 }

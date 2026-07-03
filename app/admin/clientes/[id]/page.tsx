@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCliente } from "@/lib/db";
-import { accionRegenerarCodigo } from "@/app/actions";
+import { accionRegenerarCodigo, accionSincronizarGoogle } from "@/app/actions";
 import {
   metricaActual,
   metricaAnterior,
@@ -181,6 +181,46 @@ export default async function ClienteDetallePage({
           </div>
         </Card>
       </div>
+
+      {/* Sincronización automática con Google (Places API) */}
+      <Card className="mb-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div className="text-xs font-medium uppercase tracking-wide text-slate-500">
+              Rating y reseñas — automático (Google Places API)
+            </div>
+            {c.googlePlaceId ? (
+              c.googleSyncEn ? (
+                <div className="mt-1 text-sm text-slate-800">
+                  {c.ratingGoogle?.toFixed(1)}★ · {fmtNum(c.resenasGoogle ?? 0)} reseñas
+                  <span className="ml-2 text-xs text-slate-400">
+                    actualizado {new Date(c.googleSyncEn).toLocaleString("es-AR")}
+                  </span>
+                </div>
+              ) : (
+                <div className="mt-1 text-sm text-slate-500">
+                  Todavía no se sincronizó — tocá "Sincronizar ahora".
+                </div>
+              )
+            ) : (
+              <div className="mt-1 text-sm text-slate-500">
+                Cargá el Google Place ID en "Editar suscripción" para activar esto.
+              </div>
+            )}
+          </div>
+          {c.googlePlaceId && (
+            <form action={accionSincronizarGoogle}>
+              <input type="hidden" name="id" value={c.id} />
+              <button
+                type="submit"
+                className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:border-slate-400"
+              >
+                Sincronizar ahora
+              </button>
+            </form>
+          )}
+        </div>
+      </Card>
 
       {/* KPIs del mes */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">

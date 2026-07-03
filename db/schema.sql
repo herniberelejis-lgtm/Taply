@@ -15,7 +15,11 @@ CREATE TABLE IF NOT EXISTS comercios (
   busqueda_clave     TEXT NOT NULL DEFAULT '',
   fee                NUMERIC NOT NULL DEFAULT 0,
   tono_marca         TEXT NOT NULL DEFAULT 'cercano', -- usado por el generador de respuestas
-  fecha_alta         DATE NOT NULL DEFAULT CURRENT_DATE
+  fecha_alta         DATE NOT NULL DEFAULT CURRENT_DATE,
+  google_place_id    TEXT NOT NULL DEFAULT '',        -- para sincronizar rating/reseñas por Places API
+  rating_google       NUMERIC,                        -- último rating traído automáticamente
+  resenas_google      INTEGER,                        -- último total de reseñas traído automáticamente
+  google_sync_en      TIMESTAMPTZ                      -- cuándo se sincronizó por última vez
 );
 
 CREATE TABLE IF NOT EXISTS metricas_mensuales (

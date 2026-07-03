@@ -1,6 +1,7 @@
 import "server-only";
 import crypto from "node:crypto";
 import { sql } from "./sql";
+import { fetchGooglePlaceStats } from "./places";
 import type {
   AuditGEOResultado,
   ChecklistItemSEO,
@@ -84,6 +85,10 @@ async function ensambleCliente(row: Record<string, unknown>): Promise<Cliente> {
     tonoMarca: (row.tono_marca as TonoMarca) ?? "cercano",
     historico: historico.map(mapMetrica),
     ventasNFC: ventasNFC.map(mapVenta),
+    googlePlaceId: (row.google_place_id as string) ?? "",
+    ratingGoogle: row.rating_google === null ? null : Number(row.rating_google),
+    resenasGoogle: row.resenas_google === null ? null : Number(row.resenas_google),
+    googleSyncEn: row.google_sync_en ? new Date(row.google_sync_en as string).toISOString() : null,
   };
 }
 
@@ -136,7 +141,7 @@ function slugify(nombre: string): string {
 }
 
 export async function crearCliente(
-  datos: Omit<Cliente, "id" | "codigoAcceso" | "ventasNFC" | "historico">,
+  datos: Omit<Cliente, "id" | "codigoAcceso" | "ventasNFC" | "historico" | "ratingGoogle" | "resenasGoogle" | "googleSyncEn">,
 ): Promise<Cliente> {
   let id = slugify(datos.nombre) || "comercio";
   // asegurar unicidad del id/slug
@@ -147,8 +152,8 @@ export async function crearCliente(
   }
   const codigoAcceso = generarCodigo();
   await sql`
-    INSERT INTO comercios (id, codigo_acceso, nombre, rubro, zona, plan, estado, contacto, google_review_url, busqueda_clave, fee, tono_marca, fecha_alta)
-    VALUES (${id}, ${codigoAcceso}, ${datos.nombre}, ${datos.rubro}, ${datos.zona}, ${datos.plan}, ${datos.estado}, ${datos.contacto}, ${datos.googleReviewUrl}, ${datos.busquedaClave}, ${datos.fee}, ${datos.tonoMarca ?? "cercano"}, ${datos.fechaAlta})
+    INSERT INTO comercios (id, codigo_acceso, nombre, rubro, zona, plan, estado, contacto, google_review_url, busqueda_clave, fee, tono_marca, fecha_alta, google_place_id)
+    VALUES (${id}, ${codigoAcceso}, ${datos.nombre}, ${datos.rubro}, ${datos.zona}, ${datos.plan}, ${datos.estado}, ${datos.contacto}, ${datos.googleReviewUrl}, ${datos.busquedaClave}, ${datos.fee}, ${datos.tonoMarca ?? "cercano"}, ${datos.fechaAlta}, ${datos.googlePlaceId ?? ""})
   `;
   // link de mostrador por defecto, para que el gestor de links no arranque vacío
   await sql`
@@ -179,12 +184,44 @@ export async function actualizarCliente(
       google_review_url = ${nuevo.googleReviewUrl},
       busqueda_clave = ${nuevo.busquedaClave},
       fee = ${nuevo.fee},
-      tono_marca = ${nuevo.tonoMarca}
+      tono_marca = ${nuevo.tonoMarca},
+      google_place_id = ${nuevo.googlePlaceId}
     WHERE id = ${id}
   `;
   const c = await getCliente(id);
   if (!c) throw new Error(`Comercio no encontrado: ${id}`);
   return c;
+}
+
+/** Trae rating/reseñas actuales de Google Places API y los guarda. Devuelve
+ * false sin tirar error si falta la API key o el comercio no tiene place_id
+ * — así el sync masivo del cron no se corta por un solo cliente sin
+ * configurar. */
+export async function sincronizarGoogle(id: string): Promise<boolean> {
+  const rows = await sql`SELECT google_place_id FROM comercios WHERE id = ${id}`;
+  const placeId = rows[0]?.google_place_id as string | undefined;
+  if (!placeId) return false;
+  const stats = await fetchGooglePlaceStats(placeId);
+  if (!stats) return false;
+  await sql`
+    UPDATE comercios SET
+      rating_google = ${stats.rating},
+      resenas_google = ${stats.totalReseñas},
+      google_sync_en = now()
+    WHERE id = ${id}
+  `;
+  return true;
+}
+
+/** Sincroniza todos los comercios que tengan un place_id cargado — usado
+ * por el cron diario. Devuelve cuántos se actualizaron correctamente. */
+export async function sincronizarGoogleTodos(): Promise<{ total: number; actualizados: number }> {
+  const rows = await sql`SELECT id FROM comercios WHERE google_place_id != ''`;
+  let actualizados = 0;
+  for (const row of rows) {
+    if (await sincronizarGoogle(row.id as string)) actualizados += 1;
+  }
+  return { total: rows.length, actualizados };
 }
 
 export async function guardarMetrica(id: string, m: MetricaMensual): Promise<Cliente> {

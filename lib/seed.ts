@@ -14,7 +14,10 @@ function serie(
   return MESES.map((_, i) => Math.max(0, Math.round(base + paso * i + (jitter[i] ?? 0))));
 }
 
-export const seedClientes: Omit<Cliente, "tonoMarca">[] = [
+export const seedClientes: Omit<
+  Cliente,
+  "tonoMarca" | "googlePlaceId" | "ratingGoogle" | "resenasGoogle" | "googleSyncEn"
+>[] = [
   {
     id: "barberia-guemes",
     codigoAcceso: "bg7k2m4p",

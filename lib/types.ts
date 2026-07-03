@@ -68,6 +68,11 @@ export interface Cliente {
   tonoMarca: TonoMarca;
   ventasNFC: VentaNFC[];
   historico: MetricaMensual[]; // ordenado ascendente por mes
+  googlePlaceId: string;
+  /** Rating y reseñas traídos automático por Places API — null si nunca sincronizó. */
+  ratingGoogle: number | null;
+  resenasGoogle: number | null;
+  googleSyncEn: string | null;
 }
 
 /** Tono usado por el generador de respuestas sugeridas (lib/respuestas.ts). */

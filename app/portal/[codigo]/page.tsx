@@ -176,6 +176,24 @@ export default async function PortalPage({
                 : "todavía no llegó ningún feedback privado"}
             </p>
           </Card>
+          {c.googleSyncEn && (
+            <Card className="md:col-span-2">
+              <p className="text-sm font-medium text-slate-700">
+                Tu ficha de Google ahora mismo
+              </p>
+              <div className="mt-2 flex items-baseline gap-2">
+                <span className="text-3xl font-semibold text-slate-900">
+                  {c.ratingGoogle?.toFixed(1)}★
+                </span>
+                <span className="text-sm text-slate-500">
+                  {fmtNum(c.resenasGoogle ?? 0)} reseñas totales
+                </span>
+              </div>
+              <p className="mt-1 text-xs text-slate-500">
+                actualizado automáticamente {new Date(c.googleSyncEn).toLocaleDateString("es-AR")}
+              </p>
+            </Card>
+          )}
         </div>
 
         {diasConTaps.length > 0 && (
