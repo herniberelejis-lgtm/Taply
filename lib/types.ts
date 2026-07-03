@@ -69,6 +69,9 @@ export interface Cliente {
   ventasNFC: VentaNFC[];
   historico: MetricaMensual[]; // ordenado ascendente por mes
   googlePlaceId: string;
+  /** Resource name de la ficha en Business Profile ("locations/…") — se
+   * vincula solo en la primera sincronización de rendimiento. */
+  googleLocation: string;
   /** Rating y reseñas traídos automático por Places API — null si nunca sincronizó. */
   ratingGoogle: number | null;
   resenasGoogle: number | null;

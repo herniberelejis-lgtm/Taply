@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { sincronizarGoogleTodos } from "@/lib/db";
+import { sincronizarGoogleTodos, sincronizarRendimientoTodos } from "@/lib/db";
 
 // Job diario (ver vercel.json) que actualiza rating/reseñas de todos los
 // comercios con Google Place ID cargado. Vercel Cron llama esta ruta con
@@ -7,13 +7,20 @@ import { sincronizarGoogleTodos } from "@/lib/db";
 // nadie más pueda disparar el sync desde afuera.
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const secret = process.env.CRON_SECRET;
-  if (secret) {
+  if (!secret) {
+    // En producción, sin secreto configurado el endpoint queda cerrado:
+    // abierto sería una puerta para que cualquiera queme cuota de la API.
+    if (process.env.NODE_ENV === "production") {
+      return NextResponse.json({ error: "Falta configurar CRON_SECRET" }, { status: 503 });
+    }
+  } else {
     const auth = req.headers.get("authorization");
     if (auth !== `Bearer ${secret}`) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
   }
 
-  const resultado = await sincronizarGoogleTodos();
-  return NextResponse.json(resultado);
+  const resenas = await sincronizarGoogleTodos();
+  const rendimiento = await sincronizarRendimientoTodos();
+  return NextResponse.json({ resenas, rendimiento });
 }

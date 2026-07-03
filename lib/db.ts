@@ -2,6 +2,8 @@ import "server-only";
 import crypto from "node:crypto";
 import { sql } from "./sql";
 import { fetchGooglePlaceStats } from "./places";
+import { accessTokenDesdeRefresh } from "./google-oauth";
+import { listarUbicaciones, rendimientoDelMes } from "./gbp";
 import type {
   AuditGEOResultado,
   ChecklistItemSEO,
@@ -86,6 +88,7 @@ async function ensambleCliente(row: Record<string, unknown>): Promise<Cliente> {
     historico: historico.map(mapMetrica),
     ventasNFC: ventasNFC.map(mapVenta),
     googlePlaceId: (row.google_place_id as string) ?? "",
+    googleLocation: (row.google_location as string) ?? "",
     ratingGoogle: row.rating_google === null ? null : Number(row.rating_google),
     resenasGoogle: row.resenas_google === null ? null : Number(row.resenas_google),
     googleSyncEn: row.google_sync_en ? new Date(row.google_sync_en as string).toISOString() : null,
@@ -141,7 +144,7 @@ function slugify(nombre: string): string {
 }
 
 export async function crearCliente(
-  datos: Omit<Cliente, "id" | "codigoAcceso" | "ventasNFC" | "historico" | "ratingGoogle" | "resenasGoogle" | "googleSyncEn">,
+  datos: Omit<Cliente, "id" | "codigoAcceso" | "ventasNFC" | "historico" | "ratingGoogle" | "resenasGoogle" | "googleSyncEn" | "googleLocation">,
 ): Promise<Cliente> {
   let id = slugify(datos.nombre) || "comercio";
   // asegurar unicidad del id/slug
@@ -185,7 +188,8 @@ export async function actualizarCliente(
       busqueda_clave = ${nuevo.busquedaClave},
       fee = ${nuevo.fee},
       tono_marca = ${nuevo.tonoMarca},
-      google_place_id = ${nuevo.googlePlaceId}
+      google_place_id = ${nuevo.googlePlaceId},
+      google_location = ${nuevo.googleLocation}
     WHERE id = ${id}
   `;
   const c = await getCliente(id);
@@ -242,6 +246,86 @@ export async function sincronizarGoogleTodos(): Promise<{ total: number; actuali
   let actualizados = 0;
   for (const row of rows) {
     if (await sincronizarGoogle(row.id as string)) actualizados += 1;
+  }
+  return { total: rows.length, actualizados };
+}
+
+// ---------- Ajustes (clave/valor de la agencia) ----------
+
+export async function getAjuste(clave: string): Promise<string | null> {
+  const rows = await sql`SELECT valor FROM ajustes WHERE clave = ${clave}`;
+  return rows.length ? (rows[0].valor as string) : null;
+}
+
+export async function setAjuste(clave: string, valor: string): Promise<void> {
+  await sql`
+    INSERT INTO ajustes (clave, valor) VALUES (${clave}, ${valor})
+    ON CONFLICT (clave) DO UPDATE SET valor = ${valor}, actualizado_en = now()
+  `;
+}
+
+// ---------- Rendimiento (Business Profile Performance API) ----------
+
+async function accessTokenGBP(): Promise<string | null> {
+  const refresh = await getAjuste("google_refresh_token");
+  if (!refresh) return null;
+  return accessTokenDesdeRefresh(refresh);
+}
+
+/** Trae visitas al perfil, llamadas y clics "cómo llegar" del mes en curso
+ * y los guarda en metricas_mensuales. Vincula la ficha sola la primera vez,
+ * matcheando por place_id contra las ubicaciones que administra la cuenta
+ * de Google conectada. Devuelve false (sin romper) si falta cualquier pieza:
+ * OAuth sin conectar, sin place_id, o la cuenta no administra esa ficha. */
+export async function sincronizarRendimiento(
+  id: string,
+  tokenPrevio?: string,
+  ubicacionesPrevias?: Awaited<ReturnType<typeof listarUbicaciones>>,
+): Promise<boolean> {
+  const token = tokenPrevio ?? (await accessTokenGBP());
+  if (!token) return false;
+
+  const rows = await sql`SELECT google_place_id, google_location FROM comercios WHERE id = ${id}`;
+  if (rows.length === 0) return false;
+  let location = rows[0].google_location as string;
+  const placeId = rows[0].google_place_id as string;
+
+  if (!location) {
+    if (!placeId) return false;
+    const ubicaciones = ubicacionesPrevias ?? (await listarUbicaciones(token));
+    const match = ubicaciones.find((u) => u.placeId === placeId);
+    if (!match) return false;
+    location = match.location;
+    await sql`UPDATE comercios SET google_location = ${location} WHERE id = ${id}`;
+  }
+
+  const hoy = new Date();
+  const r = await rendimientoDelMes(token, location, hoy.getFullYear(), hoy.getMonth() + 1);
+  if (!r) return false;
+
+  const mes = hoy.toISOString().slice(0, 7);
+  await sql`
+    INSERT INTO metricas_mensuales (comercio_id, mes, visitas_perfil, llamadas, clics_como_llegar)
+    VALUES (${id}, ${mes}, ${r.visitas}, ${r.llamadas}, ${r.comoLlegar})
+    ON CONFLICT (comercio_id, mes) DO UPDATE SET
+      visitas_perfil = EXCLUDED.visitas_perfil,
+      llamadas = EXCLUDED.llamadas,
+      clics_como_llegar = EXCLUDED.clics_como_llegar
+  `;
+  return true;
+}
+
+/** Rendimiento de todos los comercios con place_id — para el cron diario.
+ * Pide el token y la lista de fichas UNA vez y los reusa en todo el loop. */
+export async function sincronizarRendimientoTodos(): Promise<{ total: number; actualizados: number }> {
+  const rows = await sql`SELECT id FROM comercios WHERE google_place_id != ''`;
+  if (rows.length === 0) return { total: 0, actualizados: 0 };
+  const token = await accessTokenGBP();
+  if (!token) return { total: rows.length, actualizados: 0 };
+  const ubicaciones = await listarUbicaciones(token);
+  let actualizados = 0;
+  for (const row of rows) {
+    if (await sincronizarRendimiento(row.id as string, token, ubicaciones)) actualizados += 1;
   }
   return { total: rows.length, actualizados };
 }

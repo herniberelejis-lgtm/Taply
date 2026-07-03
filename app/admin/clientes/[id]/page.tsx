@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getCliente } from "@/lib/db";
+import { getCliente, getAjuste } from "@/lib/db";
+import { oauthConfigurado } from "@/lib/google-oauth";
 import { accionRegenerarCodigo, accionSincronizarGoogle } from "@/app/actions";
 import {
   metricaActual,
@@ -29,6 +30,9 @@ export default async function ClienteDetallePage({
   const { id } = await params;
   const c = await getCliente(id);
   if (!c) notFound();
+
+  const gbpConectado = Boolean(await getAjuste("google_refresh_token"));
+  const gbpConfigurable = oauthConfigurado();
 
   const m = metricaActual(c);
   const prev = metricaAnterior(c);
@@ -218,6 +222,44 @@ export default async function ClienteDetallePage({
                 Sincronizar ahora
               </button>
             </form>
+          )}
+        </div>
+
+        {/* Visitas y llamadas: requiere OAuth con la cuenta que administra la ficha */}
+        <div className="mt-3 border-t border-slate-100 pt-3">
+          <div className="text-xs font-medium uppercase tracking-wide text-slate-500">
+            Visitas, llamadas y "cómo llegar" — automático (Business Profile)
+          </div>
+          {!gbpConfigurable ? (
+            <p className="mt-1 text-sm text-slate-500">
+              Para activarlo hay que configurar el OAuth de Google
+              (GOOGLE_OAUTH_CLIENT_ID y GOOGLE_OAUTH_CLIENT_SECRET en Vercel).
+            </p>
+          ) : !gbpConectado ? (
+            <div className="mt-1 flex flex-wrap items-center gap-3">
+              <p className="text-sm text-slate-500">
+                Conectá la cuenta de Google que administra las fichas de tus
+                clientes (una sola vez, sirve para todos).
+              </p>
+              <a
+                href="/api/google/oauth/start"
+                className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:border-slate-400"
+              >
+                Conectar cuenta de Google
+              </a>
+            </div>
+          ) : c.googleLocation ? (
+            <p className="mt-1 text-sm text-slate-800">
+              Ficha vinculada — visitas, llamadas y "cómo llegar" se
+              actualizan solas cada día (Google publica estos datos con unos
+              días de retraso).
+            </p>
+          ) : (
+            <p className="mt-1 text-sm text-slate-500">
+              Cuenta conectada. La ficha se vincula sola en la próxima
+              sincronización — necesita el Place ID cargado y que la cuenta
+              conectada sea administradora de esta ficha en Google.
+            </p>
           )}
         </div>
       </Card>

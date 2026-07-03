@@ -82,6 +82,10 @@ export async function accionSincronizarGoogle(fd: FormData): Promise<void> {
       "No se pudo sincronizar — revisá que el comercio tenga Google Place ID cargado y que GOOGLE_PLACES_API_KEY esté configurada en Vercel.",
     );
   }
+  // Rendimiento (visitas/llamadas): best-effort — depende de que la cuenta
+  // de Google esté conectada y administre esta ficha. Si falta algo, el
+  // rating/reseñas ya quedaron actualizados igual.
+  await db.sincronizarRendimiento(id);
   revalidatePath("/", "layout");
   redirect(`/admin/clientes/${id}`);
 }
@@ -338,6 +342,9 @@ export async function accionAgregarCapturas(fd: FormData): Promise<void> {
   const archivos = fd.getAll("capturas").filter((f): f is File => f instanceof File && f.size > 0);
   const dataUrls: string[] = [];
   for (const archivo of archivos) {
+    if (!archivo.type.startsWith("image/")) {
+      throw new Error(`"${archivo.name}" no es una imagen.`);
+    }
     if (archivo.size > CAPTURA_MAX_BYTES) {
       throw new Error(`"${archivo.name}" pesa demasiado (máx 4MB).`);
     }
