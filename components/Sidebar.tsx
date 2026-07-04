@@ -11,6 +11,7 @@ const nav = [
   { href: "/admin/reportes", label: "Reportes", icon: "▤" },
   { href: "/admin/administradores", label: "Administradores", icon: "◇" },
   { href: "/admin/actividad", label: "Actividad", icon: "≡" },
+  { href: "/admin/tutoriales", label: "Tutoriales", icon: "◑" },
 ];
 
 export default function Sidebar() {

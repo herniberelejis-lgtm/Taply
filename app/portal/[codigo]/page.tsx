@@ -17,7 +17,7 @@ import { fmtMes, fmtNum, delta } from "@/lib/format";
 import { recomendacionDelMes } from "@/lib/recomendacion";
 import { waUrl } from "@/lib/whatsapp";
 import { Card, Kpi, Stars, Sparkline, PlanBadge } from "@/components/ui";
-import TapsChart from "@/components/TapsChart";
+import TendenciaResenasChart from "@/components/TendenciaResenasChart";
 
 export const dynamic = "force-dynamic";
 
@@ -91,8 +91,6 @@ export default async function PortalPage({
   const ultimosAudits = audits.slice(0, 3);
 
   const diasConTaps = [...new Set(tapsPorDia.map((d) => d.fecha))].sort();
-  const valoresTaps = diasConTaps.map((d) => tapsPorDia.find((x) => x.fecha === d)?.taps ?? 0);
-  const etiquetasTaps = diasConTaps.map((d) => d.slice(5).replace("-", "/"));
   const linksConTaps = [...links].sort((a, b) => b.taps - a.taps);
   const totalTapsHistorico = links.reduce((acc, l) => acc + l.taps, 0);
 
@@ -260,10 +258,18 @@ export default async function PortalPage({
           )}
         </div>
 
-        {diasConTaps.length > 0 && (
-          <div className="mt-4">
-            <TapsChart labels={etiquetasTaps} values={valoresTaps} tabla={diasConTaps.map((d, i) => [d, String(valoresTaps[i])])} />
-          </div>
+        {totalTapsHistorico > 0 && (
+          <Card className="mt-4">
+            <p className="text-sm font-medium text-slate-700">
+              Taps totales del cartel
+            </p>
+            <p className="mt-2 text-4xl font-semibold text-slate-900 tabular-nums">
+              {fmtNum(totalTapsHistorico)}
+            </p>
+            <p className="mt-1 text-xs text-slate-500">
+              veces que alguien tocó tu cartel desde que se instaló · se actualiza solo
+            </p>
+          </Card>
         )}
 
         {linksConTaps.length > 1 && totalTapsHistorico > 0 && (
@@ -297,7 +303,7 @@ export default async function PortalPage({
           <Card className="mt-4">
             <p className="text-sm text-slate-600">
               Todavía no hay actividad del cartel. En cuanto alguien lo
-              toque por primera vez, vas a ver acá el gráfico de taps y
+              toque por primera vez, vas a ver acá el total de taps y
               cualquier feedback que deje.
             </p>
           </Card>
@@ -489,6 +495,15 @@ export default async function PortalPage({
             <h2 id="evolucion" className="mb-3 mt-8 scroll-mt-4 text-sm font-semibold text-slate-900">
               Evolución mes a mes
             </h2>
+            {c.historico.length >= 2 && (
+              <div className="mb-4">
+                <TendenciaResenasChart
+                  labels={c.historico.map((h) => fmtMes(h.mes))}
+                  totales={c.historico.map((h) => h.resenasTotal)}
+                  ratings={c.historico.map((h) => h.ratingPromedio)}
+                />
+              </div>
+            )}
             <Card className="overflow-x-auto p-0">
               <table className="w-full text-sm">
                 <thead>
