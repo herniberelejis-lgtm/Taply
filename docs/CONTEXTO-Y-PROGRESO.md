@@ -6,9 +6,8 @@ todo lo que hay que saber para arrancar sin tener que releer meses de chat:
 qué es Taply, cómo está armado el repo, cómo venimos trabajando con Claude, y
 qué falta.
 
-Si algo de acá contradice otro doc del repo (`README.md`, `INSTRUCTIVO.md`,
-`docs/MANUAL-EQUIPO.md`), **este es el más actualizado** — los otros se van a
-ir alineando.
+Si algo de acá contradice al `README.md` o a los docs de la carpeta de Drive
+del equipo, **este es el más actualizado**.
 
 ---
 
@@ -129,7 +128,8 @@ lib/
 components/         → UI compartida (Card, Kpi, Sidebar, etc.)
 db/schema.sql       → esquema canónico DE REFERENCIA (no se auto-aplica —
                       cada cambio necesita su .sql aparte para correr en Neon)
-docs/               → este archivo, manual operativo, prompts históricos
+docs/               → este archivo (el manual operativo y los prompts
+                      históricos se mudaron a Drive)
 ```
 
 ---
@@ -205,8 +205,7 @@ En orden de lo más cerca a lo más lejos:
 
 | Necesito... | Dónde está |
 |---|---|
-| Instrucciones de instalación desde cero | `INSTRUCTIVO.md` (raíz) |
-| Cómo usar cada pantalla del panel, día a día | `docs/MANUAL-EQUIPO.md` |
+| Instrucciones de instalación desde cero, manual operativo del panel día a día | Carpeta de Drive del equipo (ya no viven en el repo) |
 | Qué integraciones están hechas vs. pendientes | `README.md`, sección "Integraciones" |
 | Variables de entorno necesarias y para qué sirve cada una | `.env.example` |
 | El esquema completo de la base de datos | `db/schema.sql` |
