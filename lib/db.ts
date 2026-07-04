@@ -23,6 +23,7 @@ import type {
   Prospecto,
   ResenaCRM,
   Rubro,
+  TipoSoporte,
   TonoMarca,
   VentaNFC,
   Zona,
@@ -405,6 +406,7 @@ function mapLink(r: Record<string, unknown>): LinkNFC {
     id: r.id as string,
     comercioId: r.comercio_id as string,
     etiqueta: r.etiqueta as string,
+    tipo: (r.tipo as TipoSoporte) ?? "nfc",
     destino: r.destino as DestinoLink,
     urlDestino: (r.url_destino as string | null) ?? null,
     activo: Boolean(r.activo),
@@ -445,7 +447,7 @@ function slugLink(etiqueta: string): string {
 
 export async function crearLink(
   comercioId: string,
-  datos: { etiqueta: string; destino: DestinoLink; urlDestino?: string | null },
+  datos: { etiqueta: string; tipo?: TipoSoporte; destino: DestinoLink; urlDestino?: string | null },
 ): Promise<LinkNFC> {
   let id = slugLink(datos.etiqueta);
   for (let i = 0; i < 50; i++) {
@@ -454,8 +456,8 @@ export async function crearLink(
     id = `${slugLink(datos.etiqueta)}-${crypto.randomBytes(2).toString("hex")}`;
   }
   await sql`
-    INSERT INTO links_nfc (id, comercio_id, etiqueta, destino, url_destino)
-    VALUES (${id}, ${comercioId}, ${datos.etiqueta}, ${datos.destino}, ${datos.urlDestino ?? null})
+    INSERT INTO links_nfc (id, comercio_id, etiqueta, tipo, destino, url_destino)
+    VALUES (${id}, ${comercioId}, ${datos.etiqueta}, ${datos.tipo ?? "nfc"}, ${datos.destino}, ${datos.urlDestino ?? null})
   `;
   const l = await getLink(id);
   if (!l) throw new Error("No se pudo crear el link.");
@@ -464,7 +466,7 @@ export async function crearLink(
 
 export async function actualizarLink(
   linkId: string,
-  datos: Partial<{ etiqueta: string; destino: DestinoLink; urlDestino: string | null; activo: boolean }>,
+  datos: Partial<{ etiqueta: string; tipo: TipoSoporte; destino: DestinoLink; urlDestino: string | null; activo: boolean }>,
 ): Promise<LinkNFC> {
   const actual = await getLink(linkId);
   if (!actual) throw new Error(`Link no encontrado: ${linkId}`);
@@ -472,6 +474,7 @@ export async function actualizarLink(
   await sql`
     UPDATE links_nfc SET
       etiqueta = ${nuevo.etiqueta},
+      tipo = ${nuevo.tipo},
       destino = ${nuevo.destino},
       url_destino = ${nuevo.urlDestino},
       activo = ${nuevo.activo}

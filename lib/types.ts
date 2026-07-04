@@ -109,10 +109,16 @@ export function ingresoNFC(c: Cliente): number {
 
 export type DestinoLink = "resena" | "menu" | "instagram" | "promo" | "url_custom";
 
+/** Qué soporte físico usa este link: chip NFC, sticker/impreso con QR, o un
+ * standee que trae los dos apuntando al mismo lugar. Sirve para saber, sin
+ * abrir cada uno, cuántos QR y cuántos NFC tiene un local instalados. */
+export type TipoSoporte = "nfc" | "qr" | "ambos";
+
 export interface LinkNFC {
   id: string; // slug corto: taply.app/t/<id>
   comercioId: string;
-  etiqueta: string;
+  etiqueta: string; // dónde/quién lo usa: "Mesa 4", "Mozo Juan", "Caja"...
+  tipo: TipoSoporte;
   destino: DestinoLink;
   urlDestino: string | null;
   activo: boolean;

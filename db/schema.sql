@@ -84,6 +84,7 @@ CREATE TABLE IF NOT EXISTS links_nfc (
   id           TEXT PRIMARY KEY,                     -- slug corto, único global: /t/<id>
   comercio_id  TEXT NOT NULL REFERENCES comercios(id) ON DELETE CASCADE,
   etiqueta     TEXT NOT NULL,                         -- "mostrador", "mesa 4"...
+  tipo         TEXT NOT NULL DEFAULT 'nfc',            -- 'nfc'|'qr'|'ambos' — qué soporte físico es
   destino      TEXT NOT NULL DEFAULT 'resena',         -- 'resena'|'menu'|'instagram'|'promo'|'url_custom'
   url_destino  TEXT,                                   -- solo si destino = 'url_custom' u otro fijo
   activo       BOOLEAN NOT NULL DEFAULT TRUE,
