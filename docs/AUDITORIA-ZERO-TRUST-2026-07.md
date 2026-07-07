@@ -1,5 +1,18 @@
 # Auditoría Zero-Trust de arquitectura y seguridad — Julio 2026
 
+> **Estado: IMPLEMENTADA (julio 2026).** Todas las alertas rojas RF-01 a
+> RF-08 y las optimizaciones de la matriz están corregidas en esta misma
+> rama (ver commits "RF-…" y "Re-auditoría (ciclo 2)"). Un segundo ciclo de
+> revisión con 8 ángulos independientes encontró y corrigió además: formato
+> de sesión unificado en `lib/sesion.ts` (Node y Edge compartían dos copias
+> que podían divergir), rechazos del cron que se tragaban en silencio,
+> filtro de bots que descontaba taps reales y duplicación de helpers.
+> Pendientes aceptados y documentados: migrar capturas a Vercel Blob,
+> rate limit global (Upstash) en vez de por instancia, y cifrado app-level
+> de `google_refresh_token`. La migración `003_indices_fk.sql` hay que
+> correrla a mano en Neon. Tras el deploy, el equipo debe volver a
+> loguearse una vez (las cookies viejas quedan inválidas a propósito).
+
 Alcance: todo el repositorio (Next.js 15 App Router + Neon Postgres + Vercel).
 Método: rastreo de flujos de datos request → código → base → respuesta, con
 verificación línea por línea de la capa de auth, las server actions, las rutas
