@@ -106,6 +106,9 @@ export async function middleware(req: NextRequest) {
   return NextResponse.redirect(url);
 }
 
+// Solo /admin/* pasa por acá: correr el middleware en la landing, el portal
+// y sobre todo en /t/[slug] (la ruta más caliente, cada tap de un cliente
+// final) era latencia y facturación Edge sin ningún efecto.
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:png|jpg|jpeg|svg|webp|ico)$).*)"],
+  matcher: ["/admin/:path*"],
 };
