@@ -69,14 +69,13 @@ function fechaISO(v: unknown): string {
   return String(v);
 }
 
-async function ensambleCliente(row: Record<string, unknown>): Promise<Cliente> {
-  const id = row.id as string;
-  const [historico, ventasNFC] = await Promise.all([
-    sql`SELECT * FROM metricas_mensuales WHERE comercio_id = ${id} ORDER BY mes ASC`,
-    sql`SELECT * FROM ventas_nfc WHERE comercio_id = ${id} ORDER BY fecha ASC`,
-  ]);
+function mapClienteBase(
+  row: Record<string, unknown>,
+  historico: MetricaMensual[],
+  ventasNFC: VentaNFC[],
+): Cliente {
   return {
-    id,
+    id: row.id as string,
     codigoAcceso: row.codigo_acceso as string,
     nombre: row.nombre as string,
     rubro: row.rubro as Rubro,
@@ -89,8 +88,8 @@ async function ensambleCliente(row: Record<string, unknown>): Promise<Cliente> {
     busquedaClave: row.busqueda_clave as string,
     fee: Number(row.fee),
     tonoMarca: (row.tono_marca as TonoMarca) ?? "cercano",
-    historico: historico.map(mapMetrica),
-    ventasNFC: ventasNFC.map(mapVenta),
+    historico,
+    ventasNFC,
     googlePlaceId: (row.google_place_id as string) ?? "",
     googleLocation: (row.google_location as string) ?? "",
     ratingGoogle: row.rating_google === null ? null : Number(row.rating_google),
@@ -105,11 +104,47 @@ async function ensambleCliente(row: Record<string, unknown>): Promise<Cliente> {
   };
 }
 
+async function ensambleCliente(row: Record<string, unknown>): Promise<Cliente> {
+  const id = row.id as string;
+  const [historico, ventasNFC] = await Promise.all([
+    sql`SELECT * FROM metricas_mensuales WHERE comercio_id = ${id} ORDER BY mes ASC`,
+    sql`SELECT * FROM ventas_nfc WHERE comercio_id = ${id} ORDER BY fecha ASC`,
+  ]);
+  return mapClienteBase(row, historico.map(mapMetrica), ventasNFC.map(mapVenta));
+}
+
 // ---------- Lectura: clientes ----------
 
 export async function getClientes(): Promise<Cliente[]> {
-  const rows = await sql`SELECT * FROM comercios ORDER BY fecha_alta ASC`;
-  return Promise.all(rows.map(ensambleCliente));
+  // 3 consultas totales, sin depender de la cantidad de clientes. La
+  // versión anterior (2 consultas POR cliente vía ensambleCliente) era un
+  // N+1 que castigaba todas las páginas del panel que listan clientes.
+  const [comercios, metricas, ventas] = await Promise.all([
+    sql`SELECT * FROM comercios ORDER BY fecha_alta ASC`,
+    sql`SELECT * FROM metricas_mensuales ORDER BY mes ASC`,
+    sql`SELECT * FROM ventas_nfc ORDER BY fecha ASC`,
+  ]);
+
+  const metricasPor = new Map<string, MetricaMensual[]>();
+  for (const r of metricas) {
+    const lista = metricasPor.get(r.comercio_id as string);
+    if (lista) lista.push(mapMetrica(r));
+    else metricasPor.set(r.comercio_id as string, [mapMetrica(r)]);
+  }
+  const ventasPor = new Map<string, VentaNFC[]>();
+  for (const r of ventas) {
+    const lista = ventasPor.get(r.comercio_id as string);
+    if (lista) lista.push(mapVenta(r));
+    else ventasPor.set(r.comercio_id as string, [mapVenta(r)]);
+  }
+
+  return comercios.map((row) =>
+    mapClienteBase(
+      row,
+      metricasPor.get(row.id as string) ?? [],
+      ventasPor.get(row.id as string) ?? [],
+    ),
+  );
 }
 
 export async function getCliente(id: string): Promise<Cliente | undefined> {
@@ -133,22 +168,51 @@ export async function getClientePorCodigo(codigo: string): Promise<Cliente | und
   return ensambleCliente(rows[0]);
 }
 
-/** Resuelve un comercio por el slug de su link de mostrador por defecto o
- * cualquiera de sus links — usado por /t/[slug] indirectamente vía getLink. */
-export async function getClientePorLinkId(linkId: string): Promise<Cliente | undefined> {
+/** Lo mínimo que necesita /t/[slug] en UNA consulta: el link y, si está
+ * asignado, lo poco del comercio que usa el star-gate. Nada de histórico,
+ * ventas ni conteo de taps — esta es la ruta más caliente del producto
+ * (cada tap de un cliente final pasa por acá). */
+export interface DatosTap {
+  link: Pick<LinkNFC, "id" | "destino" | "urlDestino" | "activo" | "usarFiltro">;
+  comercio: { id: string; nombre: string; rubro: Rubro; googleReviewUrl: string } | null;
+}
+
+export async function getDatosTap(slug: string): Promise<DatosTap | undefined> {
   const rows = await sql`
-    SELECT co.* FROM comercios co
-    JOIN links_nfc l ON l.comercio_id = co.id
-    WHERE l.id = ${linkId}
+    SELECT l.id, l.destino, l.url_destino, l.activo, l.usar_filtro,
+           co.id AS comercio_id, co.nombre, co.rubro, co.google_review_url
+    FROM links_nfc l
+    LEFT JOIN comercios co ON co.id = l.comercio_id
+    WHERE l.id = ${slug}
   `;
   if (rows.length === 0) return undefined;
-  return ensambleCliente(rows[0]);
+  const r = rows[0];
+  return {
+    link: {
+      id: r.id as string,
+      destino: r.destino as DestinoLink,
+      urlDestino: (r.url_destino as string | null) ?? null,
+      activo: Boolean(r.activo),
+      usarFiltro: r.usar_filtro === undefined ? true : Boolean(r.usar_filtro),
+    },
+    comercio: r.comercio_id
+      ? {
+          id: r.comercio_id as string,
+          nombre: r.nombre as string,
+          rubro: r.rubro as Rubro,
+          googleReviewUrl: r.google_review_url as string,
+        }
+      : null,
+  };
 }
 
 // ---------- Escritura: clientes ----------
 
 export function generarCodigo(): string {
-  return crypto.randomBytes(4).toString("hex");
+  // 8 bytes = 64 bits de entropía. Es la credencial permanente del portal
+  // del cliente (sin expiración): 4 bytes eran un margen demasiado fino
+  // contra enumeración. Solo afecta códigos nuevos o regenerados.
+  return crypto.randomBytes(8).toString("hex");
 }
 
 function slugify(nombre: string): string {
