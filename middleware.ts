@@ -8,21 +8,13 @@ import { NextResponse, type NextRequest } from "next/server";
 // Sin ADMIN_PASSWORD configurada: /admin abierto en desarrollo (tu PC),
 // bloqueado en producción (nunca se publica el panel sin contraseña).
 //
+// Los dos formatos de cookie llevan un vencimiento firmado (ver lib/auth.ts)
+// que se verifica acá con WebCrypto (esto corre en Edge, sin node:crypto).
 // Además de este filtro por ruta, cada server action de admin vuelve a
 // verificar la sesión por su cuenta (lib/auth.ts → requireAdmin), así una
 // mutación nunca puede ejecutarse por un request forjado.
 
 const PROTEGIDAS = /^\/admin(\/|$)/;
-
-async function sha256(texto: string): Promise<string> {
-  const buf = await crypto.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(texto),
-  );
-  return Array.from(new Uint8Array(buf))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-}
 
 function base64UrlABytes(b64url: string): Uint8Array {
   const b64 = b64url.replace(/-/g, "+").replace(/_/g, "/");
@@ -39,7 +31,7 @@ function bytesToBase64Url(bytes: Uint8Array): string {
   return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
-async function firmaValidaGoogle(payload: string, firma: string, clave: string): Promise<boolean> {
+async function hmacBase64Url(clave: string, mensaje: string): Promise<string> {
   const cryptoKey = await crypto.subtle.importKey(
     "raw",
     new TextEncoder().encode(clave),
@@ -47,23 +39,44 @@ async function firmaValidaGoogle(payload: string, firma: string, clave: string):
     false,
     ["sign"],
   );
-  const sig = await crypto.subtle.sign("HMAC", cryptoKey, new TextEncoder().encode(payload));
-  const esperada = bytesToBase64Url(new Uint8Array(sig));
-  if (esperada.length !== firma.length) return false;
+  const sig = await crypto.subtle.sign("HMAC", cryptoKey, new TextEncoder().encode(mensaje));
+  return bytesToBase64Url(new Uint8Array(sig));
+}
+
+/** Comparación en tiempo constante (equivalente Edge de timingSafeEqual). */
+function igualesConstante(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
   let diff = 0;
-  for (let i = 0; i < esperada.length; i++) diff |= esperada.charCodeAt(i) ^ firma.charCodeAt(i);
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
   return diff === 0;
 }
 
+/** Cookie de contraseña compartida: "exp.firma" — mismo formato que arma
+ * lib/auth.ts → crearCookiePassword. */
+async function sesionPasswordValida(cookieValue: string, password: string): Promise<boolean> {
+  const [exp, firma] = cookieValue.split(".");
+  if (!exp || !firma) return false;
+  if (!/^\d+$/.test(exp) || Date.now() > Number(exp)) return false;
+  const esperada = await hmacBase64Url(password, `pw.${exp}`);
+  return igualesConstante(esperada, firma);
+}
+
+/** Cookie de Google: "payload.firma" con el vencimiento dentro del payload. */
 async function sesionGoogleValida(cookieValue: string): Promise<boolean> {
   const clave = process.env.GOOGLE_OAUTH_CLIENT_SECRET;
   if (!clave) return false;
   const [payload, firma] = cookieValue.split(".");
   if (!payload || !firma) return false;
-  if (!(await firmaValidaGoogle(payload, firma, clave))) return false;
+  const esperada = await hmacBase64Url(clave, payload);
+  if (!igualesConstante(esperada, firma)) return false;
   try {
-    const data = JSON.parse(new TextDecoder().decode(base64UrlABytes(payload))) as { email?: string };
-    return Boolean(data.email);
+    const data = JSON.parse(new TextDecoder().decode(base64UrlABytes(payload))) as {
+      email?: string;
+      exp?: number;
+    };
+    if (!data.email) return false;
+    if (!data.exp || Date.now() > data.exp) return false; // sesión vencida
+    return true;
   } catch {
     return false;
   }
@@ -79,7 +92,9 @@ export async function middleware(req: NextRequest) {
     // producción sin contraseña: mandar a /login, que explica cómo configurarla
   } else {
     const cookiePassword = req.cookies.get("admin_session")?.value;
-    if (cookiePassword === (await sha256(password))) return NextResponse.next();
+    if (cookiePassword && (await sesionPasswordValida(cookiePassword, password))) {
+      return NextResponse.next();
+    }
   }
 
   const cookieGoogle = req.cookies.get("admin_google_session")?.value;

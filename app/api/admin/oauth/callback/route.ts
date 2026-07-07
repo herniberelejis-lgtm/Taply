@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { canjearCodigo, decodificarIdToken } from "@/lib/google-oauth";
-import { crearCookieSesionGoogle, COOKIE_GOOGLE } from "@/lib/auth";
+import { crearCookieSesionGoogle, COOKIE_GOOGLE, SESION_MAX_MS } from "@/lib/auth";
 import { esAdminPermitido, registrarAuditoria } from "@/lib/db";
 
 // Callback del login del equipo: valida el state, canjea el code por el
@@ -38,7 +38,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
-    maxAge: 60 * 60 * 24 * 30, // 30 días
+    maxAge: SESION_MAX_MS / 1000, // 30 días — el exp firmado dentro del payload es el que manda
     path: "/",
   });
   return limpiar(res);
