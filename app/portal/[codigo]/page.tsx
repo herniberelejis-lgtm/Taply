@@ -130,6 +130,45 @@ export default async function PortalPage({
   const dResenas = delta(m?.resenasNuevas ?? 0, prev?.resenasNuevas ?? 0);
   const dCitas = delta(citasIA(m), citasIA(prev));
 
+  // Lo que corre arriba de todo: acciones pendientes reales del dueño,
+  // ordenadas por urgencia. Todo lo demás del portal es "mirar" — esto es
+  // lo único que hay que "hacer", así que va primero pase lo que pase.
+  type Prioridad = { texto: string; href: string; tono: "urgente" | "atencion" | "info" };
+  const prioridades: Prioridad[] = [];
+  if (resenasPendientes.length > 0) {
+    prioridades.push({
+      texto: `${resenasPendientes.length} reseña${resenasPendientes.length === 1 ? "" : "s"} esperando tu respuesta`,
+      href: "#resenas",
+      tono: "urgente",
+    });
+  }
+  if (feedbackPendiente.length > 0) {
+    prioridades.push({
+      texto: `${feedbackPendiente.length} queja${feedbackPendiente.length === 1 ? "" : "s"} privada${feedbackPendiente.length === 1 ? "" : "s"} sin resolver`,
+      href: "#feedback",
+      tono: "atencion",
+    });
+  }
+  if (gbpPorVencer) {
+    prioridades.push({
+      texto: "El permiso de Google vence pronto — reconectá para no cortar la sincronización",
+      href: "#gbp",
+      tono: "atencion",
+    });
+  }
+  if (!gbpConectado) {
+    prioridades.push({
+      texto: "Conectá tu Google Business Profile para automatizar visitas y llamadas",
+      href: "#gbp",
+      tono: "info",
+    });
+  }
+  const COLOR_TONO: Record<Prioridad["tono"], string> = {
+    urgente: "bg-rose-500",
+    atencion: "bg-amber-500",
+    info: "bg-brand",
+  };
+
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Header del portal */}
@@ -164,14 +203,6 @@ export default async function PortalPage({
 
         {/* Accesos rápidos: solo a las secciones que existen para este cliente */}
         <nav className="mx-auto flex max-w-4xl flex-wrap gap-x-5 gap-y-1.5 px-6 pb-3 text-xs font-medium">
-          <a href="#en-vivo" className="text-slate-500 transition hover:text-brand-fg">
-            En vivo
-          </a>
-          {m && (
-            <a href="#metricas" className="text-slate-500 transition hover:text-brand-fg">
-              Métricas del mes
-            </a>
-          )}
           {resenas.length > 0 && (
             <a href="#resenas" className="inline-flex items-center gap-1 text-slate-500 transition hover:text-brand-fg">
               Reseñas
@@ -180,6 +211,14 @@ export default async function PortalPage({
                   {resenasPendientes.length}
                 </span>
               )}
+            </a>
+          )}
+          <a href="#en-vivo" className="text-slate-500 transition hover:text-brand-fg">
+            En vivo
+          </a>
+          {m && (
+            <a href="#metricas" className="text-slate-500 transition hover:text-brand-fg">
+              Métricas del mes
             </a>
           )}
           {esPremium && (
@@ -213,10 +252,97 @@ export default async function PortalPage({
           </div>
         )}
 
+        {/* Lo único que requiere una acción del dueño, ordenado por
+            urgencia — todo lo demás en este portal es informativo. */}
+        {prioridades.length > 0 && (
+          <Card className="mb-4 !p-0 overflow-hidden">
+            <div className="flex items-center justify-between px-4 pb-2 pt-3.5">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Necesita tu atención
+              </p>
+              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-600">
+                {prioridades.length}
+              </span>
+            </div>
+            <div className="divide-y divide-slate-100 border-t border-slate-100">
+              {prioridades.map((p) => (
+                <a
+                  key={p.href + p.texto}
+                  href={p.href}
+                  className="flex items-center gap-3 px-4 py-3 text-sm text-slate-700 transition hover:bg-slate-50"
+                >
+                  <span className={`h-2 w-2 shrink-0 rounded-full ${COLOR_TONO[p.tono]}`} aria-hidden />
+                  <span className="flex-1">{p.texto}</span>
+                  <span className="text-slate-300" aria-hidden>→</span>
+                </a>
+              ))}
+            </div>
+          </Card>
+        )}
+
+        {/* Gestión de reseñas: el dueño edita/aprueba la respuesta sugerida
+            para sus reseñas de Google, sin depender del equipo de Taply.
+            Va primero entre las secciones de contenido: es la única con
+            impacto directo y público en la reputación del negocio. */}
+        {resenas.length > 0 && (
+          <Card className="mb-4 scroll-mt-4" id="resenas">
+            <p className="text-sm font-medium text-slate-700">Gestión de reseñas</p>
+            <p className="mt-1 text-xs text-slate-500">
+              Respuestas sugeridas para tus reseñas de Google — editalas, aprobalas, y copialas
+              para pegarlas vos mismo en Google (todavía no publicamos ahí de forma automática).
+            </p>
+            <div className="mt-3">
+              <GestionResenas
+                resenasIniciales={resenasPendientes}
+                tonoMarca={c.tonoMarca}
+                codigo={c.codigoAcceso}
+              />
+            </div>
+          </Card>
+        )}
+
+        {/* Feedback privado: el contenido real, no solo el número */}
+        {feedback.length > 0 && (
+          <Card className="mb-4 scroll-mt-4" id="feedback">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium text-slate-700">
+                Feedback privado de tus clientes
+              </p>
+              {feedbackPendiente.length > 0 && (
+                <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-medium text-rose-700">
+                  {feedbackPendiente.length} sin resolver
+                </span>
+              )}
+            </div>
+            <p className="mt-1 text-xs text-slate-500">
+              Esto nunca se publica en Google — te llega solo a vos, para que lo resuelvas antes de que se haga público.
+            </p>
+            <div className="mt-3 divide-y divide-slate-100">
+              {feedback.slice(0, 6).map((f) => (
+                <div key={f.id} className="py-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-amber-400">{"★".repeat(f.estrellas)}</span>
+                    <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${COLOR_ESTADO_FEEDBACK[f.estado]}`}>
+                      {LABEL_ESTADO_FEEDBACK[f.estado]}
+                    </span>
+                    <span className="text-xs text-slate-400">{fechaCorta(f.creadoEn)}</span>
+                  </div>
+                  <p className="mt-1.5 text-sm text-slate-700">{f.texto}</p>
+                </div>
+              ))}
+            </div>
+            {feedback.length > 6 && (
+              <p className="mt-2 text-xs text-slate-400">
+                Y {feedback.length - 6} más — pedile a tu agencia el detalle completo.
+              </p>
+            )}
+          </Card>
+        )}
+
         {/* Conexión con Google Business Profile: la autoriza el dueño de la
             ficha (este cliente), no la agencia — así las visitas y llamadas
             se traen solas sin que nadie tenga que cargar nada a mano. */}
-        <Card className="mb-4">
+        <Card className="mb-4 scroll-mt-4" id="gbp">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-start gap-3">
               <span
@@ -386,63 +512,6 @@ export default async function PortalPage({
               toque por primera vez, vas a ver acá el total de taps y
               cualquier feedback que deje.
             </p>
-          </Card>
-        )}
-
-        {/* Gestión de reseñas: el dueño edita/aprueba la respuesta sugerida
-            para sus reseñas de Google, sin depender del equipo de Taply */}
-        {resenas.length > 0 && (
-          <Card className="mt-4 scroll-mt-4" id="resenas">
-            <p className="text-sm font-medium text-slate-700">Gestión de reseñas</p>
-            <p className="mt-1 text-xs text-slate-500">
-              Respuestas sugeridas para tus reseñas de Google — editalas, aprobalas, y copialas
-              para pegarlas vos mismo en Google (todavía no publicamos ahí de forma automática).
-            </p>
-            <div className="mt-3">
-              <GestionResenas
-                resenasIniciales={resenasPendientes}
-                tonoMarca={c.tonoMarca}
-                codigo={c.codigoAcceso}
-              />
-            </div>
-          </Card>
-        )}
-
-        {/* Feedback privado: el contenido real, no solo el número */}
-        {feedback.length > 0 && (
-          <Card className="mt-4">
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-medium text-slate-700">
-                Feedback privado de tus clientes
-              </p>
-              {feedbackPendiente.length > 0 && (
-                <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-medium text-rose-700">
-                  {feedbackPendiente.length} sin resolver
-                </span>
-              )}
-            </div>
-            <p className="mt-1 text-xs text-slate-500">
-              Esto nunca se publica en Google — te llega solo a vos, para que lo resuelvas antes de que se haga público.
-            </p>
-            <div className="mt-3 divide-y divide-slate-100">
-              {feedback.slice(0, 6).map((f) => (
-                <div key={f.id} className="py-3">
-                  <div className="flex items-center gap-2">
-                    <span className="text-amber-400">{"★".repeat(f.estrellas)}</span>
-                    <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${COLOR_ESTADO_FEEDBACK[f.estado]}`}>
-                      {LABEL_ESTADO_FEEDBACK[f.estado]}
-                    </span>
-                    <span className="text-xs text-slate-400">{fechaCorta(f.creadoEn)}</span>
-                  </div>
-                  <p className="mt-1.5 text-sm text-slate-700">{f.texto}</p>
-                </div>
-              ))}
-            </div>
-            {feedback.length > 6 && (
-              <p className="mt-2 text-xs text-slate-400">
-                Y {feedback.length - 6} más — pedile a tu agencia el detalle completo.
-              </p>
-            )}
           </Card>
         )}
 
