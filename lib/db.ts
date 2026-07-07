@@ -186,15 +186,20 @@ export async function crearCliente(
     id = `${slugify(datos.nombre)}-${crypto.randomBytes(2).toString("hex")}`;
   }
   const codigoAcceso = generarCodigo();
-  await sql`
-    INSERT INTO comercios (id, codigo_acceso, nombre, rubro, zona, plan, estado, contacto, google_review_url, busqueda_clave, fee, tono_marca, fecha_alta, google_place_id)
-    VALUES (${id}, ${codigoAcceso}, ${datos.nombre}, ${datos.rubro}, ${datos.zona}, ${datos.plan}, ${datos.estado}, ${datos.contacto}, ${datos.googleReviewUrl}, ${datos.busquedaClave}, ${datos.fee}, ${datos.tonoMarca ?? "cercano"}, ${datos.fechaAlta}, ${datos.googlePlaceId ?? ""})
-  `;
-  // link de mostrador por defecto, para que el gestor de links no arranque vacío
-  await sql`
-    INSERT INTO links_nfc (id, comercio_id, etiqueta, destino)
-    VALUES (${`${id}-mostrador`}, ${id}, ${"Mostrador"}, ${"resena"})
-  `;
+  // Transacción: el comercio y su link de mostrador por defecto nacen
+  // juntos o no nace ninguno — sin esto, un fallo en el segundo INSERT
+  // dejaba un comercio sin link, estado que la UI asume imposible.
+  await sql.begin(async (tx) => {
+    await tx`
+      INSERT INTO comercios (id, codigo_acceso, nombre, rubro, zona, plan, estado, contacto, google_review_url, busqueda_clave, fee, tono_marca, fecha_alta, google_place_id)
+      VALUES (${id}, ${codigoAcceso}, ${datos.nombre}, ${datos.rubro}, ${datos.zona}, ${datos.plan}, ${datos.estado}, ${datos.contacto}, ${datos.googleReviewUrl}, ${datos.busquedaClave}, ${datos.fee}, ${datos.tonoMarca ?? "cercano"}, ${datos.fechaAlta}, ${datos.googlePlaceId ?? ""})
+    `;
+    // link de mostrador por defecto, para que el gestor de links no arranque vacío
+    await tx`
+      INSERT INTO links_nfc (id, comercio_id, etiqueta, destino)
+      VALUES (${`${id}-mostrador`}, ${id}, ${"Mostrador"}, ${"resena"})
+    `;
+  });
   const c = await getCliente(id);
   if (!c) throw new Error("No se pudo crear el comercio.");
   return c;
@@ -204,26 +209,28 @@ export async function actualizarCliente(
   id: string,
   datos: Partial<Omit<Cliente, "id" | "ventasNFC" | "historico">>,
 ): Promise<Cliente> {
-  const actual = await getCliente(id);
-  if (!actual) throw new Error(`Comercio no encontrado: ${id}`);
-  const nuevo = { ...actual, ...datos };
-  await sql`
+  // Un solo UPDATE atómico: cada campo ausente conserva su valor actual en
+  // SQL. El viejo leer-mezclar-escribir en JS permitía que dos ediciones
+  // concurrentes se pisaran (lost update).
+  const rows = await sql`
     UPDATE comercios SET
-      codigo_acceso = ${nuevo.codigoAcceso},
-      nombre = ${nuevo.nombre},
-      rubro = ${nuevo.rubro},
-      zona = ${nuevo.zona},
-      plan = ${nuevo.plan},
-      estado = ${nuevo.estado},
-      contacto = ${nuevo.contacto},
-      google_review_url = ${nuevo.googleReviewUrl},
-      busqueda_clave = ${nuevo.busquedaClave},
-      fee = ${nuevo.fee},
-      tono_marca = ${nuevo.tonoMarca},
-      google_place_id = ${nuevo.googlePlaceId},
-      google_location = ${nuevo.googleLocation}
+      codigo_acceso = ${datos.codigoAcceso === undefined ? sql`codigo_acceso` : datos.codigoAcceso},
+      nombre = ${datos.nombre === undefined ? sql`nombre` : datos.nombre},
+      rubro = ${datos.rubro === undefined ? sql`rubro` : datos.rubro},
+      zona = ${datos.zona === undefined ? sql`zona` : datos.zona},
+      plan = ${datos.plan === undefined ? sql`plan` : datos.plan},
+      estado = ${datos.estado === undefined ? sql`estado` : datos.estado},
+      contacto = ${datos.contacto === undefined ? sql`contacto` : datos.contacto},
+      google_review_url = ${datos.googleReviewUrl === undefined ? sql`google_review_url` : datos.googleReviewUrl},
+      busqueda_clave = ${datos.busquedaClave === undefined ? sql`busqueda_clave` : datos.busquedaClave},
+      fee = ${datos.fee === undefined ? sql`fee` : datos.fee},
+      tono_marca = ${datos.tonoMarca === undefined ? sql`tono_marca` : datos.tonoMarca},
+      google_place_id = ${datos.googlePlaceId === undefined ? sql`google_place_id` : datos.googlePlaceId},
+      google_location = ${datos.googleLocation === undefined ? sql`google_location` : datos.googleLocation}
     WHERE id = ${id}
+    RETURNING id
   `;
+  if (rows.length === 0) throw new Error(`Comercio no encontrado: ${id}`);
   const c = await getCliente(id);
   if (!c) throw new Error(`Comercio no encontrado: ${id}`);
   return c;
@@ -635,19 +642,20 @@ export async function actualizarLink(
     usarFiltro: boolean;
   }>,
 ): Promise<LinkNFC> {
-  const actual = await getLink(linkId);
-  if (!actual) throw new Error(`Link no encontrado: ${linkId}`);
-  const nuevo = { ...actual, ...datos };
-  await sql`
+  // Mismo criterio que actualizarCliente: UPDATE atómico, sin leer-mezclar-
+  // escribir. urlDestino distingue "no tocar" (undefined) de "borrar" (null).
+  const rows = await sql`
     UPDATE links_nfc SET
-      etiqueta = ${nuevo.etiqueta},
-      tipo = ${nuevo.tipo},
-      destino = ${nuevo.destino},
-      url_destino = ${nuevo.urlDestino},
-      activo = ${nuevo.activo},
-      usar_filtro = ${nuevo.usarFiltro}
+      etiqueta = ${datos.etiqueta === undefined ? sql`etiqueta` : datos.etiqueta},
+      tipo = ${datos.tipo === undefined ? sql`tipo` : datos.tipo},
+      destino = ${datos.destino === undefined ? sql`destino` : datos.destino},
+      url_destino = ${datos.urlDestino === undefined ? sql`url_destino` : datos.urlDestino},
+      activo = ${datos.activo === undefined ? sql`activo` : datos.activo},
+      usar_filtro = ${datos.usarFiltro === undefined ? sql`usar_filtro` : datos.usarFiltro}
     WHERE id = ${linkId}
+    RETURNING id
   `;
+  if (rows.length === 0) throw new Error(`Link no encontrado: ${linkId}`);
   const l = await getLink(linkId);
   if (!l) throw new Error(`Link no encontrado: ${linkId}`);
   return l;
@@ -680,28 +688,36 @@ export async function generarLotePiezas(
   tipo: TipoSoporte,
   lote: string,
 ): Promise<PiezaHardware[]> {
-  const rows = await sql`
-    SELECT id FROM links_nfc WHERE id LIKE 'p-%'
-  `;
-  let max = 0;
-  for (const r of rows) {
-    const n = Number((r.id as string).slice(2));
-    if (Number.isFinite(n) && n > max) max = n;
-  }
+  // Transacción + lock consultivo: dos lotes generándose a la vez leían el
+  // mismo correlativo y colisionaban en la PK a mitad de lote, dejando el
+  // inventario a medias. El lock es de transacción (se suelta solo) y
+  // funciona igual detrás del pooler de Neon.
+  const creadas = await sql.begin(async (tx) => {
+    await tx`SELECT pg_advisory_xact_lock(hashtext('taply_lote_piezas'))`;
 
-  const nuevas: string[] = [];
-  for (let i = 1; i <= cantidad; i++) {
-    nuevas.push(`p-${String(max + i).padStart(4, "0")}`);
-  }
-
-  for (const id of nuevas) {
-    await sql`
-      INSERT INTO links_nfc (id, comercio_id, etiqueta, tipo, lote, destino)
-      VALUES (${id}, NULL, '', ${tipo}, ${lote}, 'resena')
+    const rows = await tx`
+      SELECT id FROM links_nfc WHERE id LIKE 'p-%'
     `;
-  }
+    let max = 0;
+    for (const r of rows) {
+      const n = Number((r.id as string).slice(2));
+      if (Number.isFinite(n) && n > max) max = n;
+    }
 
-  const creadas = await sql`SELECT *, 0 AS taps FROM links_nfc WHERE id = ANY(${nuevas})`;
+    const nuevas: string[] = [];
+    for (let i = 1; i <= cantidad; i++) {
+      nuevas.push(`p-${String(max + i).padStart(4, "0")}`);
+    }
+
+    for (const id of nuevas) {
+      await tx`
+        INSERT INTO links_nfc (id, comercio_id, etiqueta, tipo, lote, destino)
+        VALUES (${id}, NULL, '', ${tipo}, ${lote}, 'resena')
+      `;
+    }
+
+    return tx`SELECT *, 0 AS taps FROM links_nfc WHERE id = ANY(${nuevas})`;
+  });
   return creadas.map(mapPiezaHardware);
 }
 
@@ -1256,18 +1272,25 @@ export async function eliminarProspecto(id: string): Promise<void> {
 }
 
 export async function agregarCapturas(id: string, nuevas: string[]): Promise<void> {
-  const rows = await sql`SELECT capturas FROM prospectos WHERE id = ${id}`;
-  if (rows.length === 0) return;
-  const capturas = [...((rows[0].capturas as string[]) ?? []), ...nuevas];
-  await sql`UPDATE prospectos SET capturas = ${sql.json(capturas)} WHERE id = ${id}`;
+  // Concatenación jsonb atómica en SQL: el viejo leer-modificar-escribir
+  // perdía capturas si dos subidas llegaban a la vez.
+  if (nuevas.length === 0) return;
+  await sql`
+    UPDATE prospectos SET capturas = capturas || ${sql.json(nuevas)}
+    WHERE id = ${id}
+  `;
 }
 
 export async function eliminarCaptura(id: string, index: number): Promise<void> {
-  const rows = await sql`SELECT capturas FROM prospectos WHERE id = ${id}`;
-  if (rows.length === 0) return;
-  const capturas = (rows[0].capturas as string[]) ?? [];
-  capturas.splice(index, 1);
-  await sql`UPDATE prospectos SET capturas = ${sql.json(capturas)} WHERE id = ${id}`;
+  // jsonb - int borra por posición de forma atómica (el cast evita que
+  // Postgres resuelva al operador jsonb - text). Negativos contarían desde
+  // el final — no es lo que la UI manda, se rechazan.
+  const i = Math.trunc(index);
+  if (!Number.isFinite(i) || i < 0) return;
+  await sql`
+    UPDATE prospectos SET capturas = capturas - ${i}::int
+    WHERE id = ${id}
+  `;
 }
 
 // ---------- Administradores (login por Google, allowlist del equipo) ----------
