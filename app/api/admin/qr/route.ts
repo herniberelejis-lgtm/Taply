@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { tieneSesionAdmin } from "@/lib/auth";
 import { getLink } from "@/lib/db";
-import { generarQrPng } from "@/lib/qr";
+import { generarQrPng, urlPublicaDeTap } from "@/lib/qr";
 
 // QR real del link NFC de un cliente: codifica /t/<slug> tal cual, así el
 // standee impreso con este QR abre exactamente la misma página que abre el
@@ -23,7 +23,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Link no encontrado" }, { status: 404 });
   }
 
-  const targetUrl = `${req.nextUrl.origin}/t/${link.id}`;
+  const targetUrl = urlPublicaDeTap(link.id, req.nextUrl.origin);
   const png = await generarQrPng(targetUrl);
 
   const headers: Record<string, string> = {

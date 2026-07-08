@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import JSZip from "jszip";
 import { tieneSesionAdmin } from "@/lib/auth";
 import { getInventarioHardware } from "@/lib/db";
-import { generarQrPng } from "@/lib/qr";
+import { generarQrPng, urlPublicaDeTap } from "@/lib/qr";
 
 // Descarga masiva de QR para mandar a imprimir: un .zip con un PNG por
 // pieza, nombrado por su código fijo (qr-p-0001.png...). Por defecto solo
@@ -34,7 +34,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const zip = new JSZip();
   await Promise.all(
     piezas.map(async (pieza) => {
-      const targetUrl = `${req.nextUrl.origin}/t/${pieza.id}`;
+      const targetUrl = urlPublicaDeTap(pieza.id, req.nextUrl.origin);
       const png = await generarQrPng(targetUrl);
       zip.file(`qr-${pieza.id}.png`, png);
     }),
