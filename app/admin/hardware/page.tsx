@@ -4,6 +4,7 @@ import { getInventarioHardware, getClientes } from "@/lib/db";
 import {
   accionGenerarLotePiezas,
   accionAsignarPieza,
+  accionLiberarPieza,
 } from "@/app/actions";
 import { Field, inputCls, SubmitButton } from "@/components/forms";
 import { Card, PageHeader } from "@/components/ui";
@@ -197,6 +198,7 @@ export default async function HardwarePage() {
                   <th className="px-4 py-3 font-medium">Etiqueta</th>
                   <th className="px-4 py-3 font-medium">Tipo</th>
                   <th className="px-4 py-3 font-medium">Taps</th>
+                  <th className="px-4 py-3 font-medium">Acciones</th>
                 </tr>
               </thead>
               <tbody>
@@ -218,6 +220,30 @@ export default async function HardwarePage() {
                     <td className="px-4 py-3 text-slate-600">{p.etiqueta}</td>
                     <td className="px-4 py-3 text-xs text-slate-500">{LABEL_TIPO[p.tipo]}</td>
                     <td className="px-4 py-3 tabular-nums">{fmtNum(p.taps)}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        {p.comercioId && (
+                          <Link
+                            href={`/admin/clientes/${p.comercioId}/links`}
+                            className="text-xs font-medium text-brand-fg hover:underline"
+                          >
+                            Editar
+                          </Link>
+                        )}
+                        <form
+                          action={accionLiberarPieza}
+                          title="Vuelve al inventario para reasignar a otro cliente. El QR/NFC impreso sigue siendo válido; el historial de taps se conserva."
+                        >
+                          <input type="hidden" name="id" value={p.id} />
+                          <button
+                            type="submit"
+                            className="text-xs font-medium text-amber-600 hover:text-amber-800"
+                          >
+                            Liberar
+                          </button>
+                        </form>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>

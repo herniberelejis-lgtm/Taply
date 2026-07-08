@@ -6,6 +6,7 @@ import {
   accionActualizarLink,
   accionCrearLink,
   accionEliminarLink,
+  accionLiberarPieza,
 } from "@/app/actions";
 import { Field, inputCls, SubmitButton } from "@/components/forms";
 import { Card, PageHeader } from "@/components/ui";
@@ -338,16 +339,31 @@ export default async function LinksPage({
                       <SubmitButton>Guardar cambios</SubmitButton>
                     </div>
                   </form>
-                  <form action={accionEliminarLink} className="mt-2">
-                    <input type="hidden" name="linkId" value={l.id} />
-                    <input type="hidden" name="comercioId" value={c.id} />
-                    <button
-                      type="submit"
-                      className="text-xs text-rose-500 hover:text-rose-700"
-                    >
-                      Eliminar link
-                    </button>
-                  </form>
+                  {l.lote ? (
+                    // Pieza fabricada en lote: existe físicamente (QR impreso /
+                    // NFC grabado), no se puede eliminar — se libera al
+                    // inventario para reasignar, conservando código y taps.
+                    <form action={accionLiberarPieza} className="mt-2">
+                      <input type="hidden" name="id" value={l.id} />
+                      <button
+                        type="submit"
+                        className="text-xs text-amber-600 hover:text-amber-800"
+                      >
+                        Liberar pieza (vuelve al inventario de hardware)
+                      </button>
+                    </form>
+                  ) : (
+                    <form action={accionEliminarLink} className="mt-2">
+                      <input type="hidden" name="linkId" value={l.id} />
+                      <input type="hidden" name="comercioId" value={c.id} />
+                      <button
+                        type="submit"
+                        className="text-xs text-rose-500 hover:text-rose-700"
+                      >
+                        Eliminar link
+                      </button>
+                    </form>
+                  )}
                 </details>
               </Card>
             ))}

@@ -229,6 +229,15 @@ export async function accionEliminarLink(fd: FormData): Promise<void> {
 
 // ---------- Inventario de hardware (piezas en lote: QR + NFC) ----------
 
+export async function accionLiberarPieza(fd: FormData): Promise<void> {
+  await requireAdmin();
+  const id = str(fd, "id");
+  await db.liberarPieza(id);
+  await auditar("liberar_pieza_hardware", id);
+  revalidatePath("/", "layout");
+  redirect("/admin/hardware");
+}
+
 export async function accionGenerarLotePiezas(fd: FormData): Promise<void> {
   await requireAdmin();
   const cantidad = Math.max(1, Math.min(500, Math.round(num(fd, "cantidad"))));

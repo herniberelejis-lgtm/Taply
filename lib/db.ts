@@ -726,7 +726,43 @@ export async function actualizarLink(
 }
 
 export async function eliminarLink(linkId: string): Promise<void> {
-  await sql`DELETE FROM links_nfc WHERE id = ${linkId}`;
+  // Guard de hardware impreso: las piezas fabricadas en lote existen en el
+  // mundo físico (tarjeta/standee con el QR ya impreso y el NFC grabado) —
+  // borrar su fila mataría ese hardware para siempre (404 irreversible).
+  // Se liberan (vuelven al inventario) o se desactivan, nunca se borran.
+  const rows = await sql`
+    DELETE FROM links_nfc WHERE id = ${linkId} AND lote = '' RETURNING id
+  `;
+  if (rows.length === 0) {
+    const existe = await sql`SELECT lote FROM links_nfc WHERE id = ${linkId}`;
+    if (existe.length > 0) {
+      throw new Error(
+        `La pieza ${linkId} es hardware fabricado (lote "${existe[0].lote}") y no se puede eliminar: ` +
+          "hay tarjetas/carteles impresos apuntando a ella. Usá «Liberar» para devolverla al inventario, o desactivala.",
+      );
+    }
+  }
+}
+
+/** Devuelve una pieza asignada al inventario de hardware: se desvincula del
+ * cliente y queda limpia para reasignar a otro. El código (y por lo tanto
+ * el QR impreso y el chip NFC grabado) no cambia jamás; el historial de
+ * taps se conserva. Operación reversible: se vuelve a asignar cuando sea. */
+export async function liberarPieza(id: string): Promise<void> {
+  const rows = await sql`
+    UPDATE links_nfc SET
+      comercio_id = NULL,
+      etiqueta = '',
+      destino = 'resena',
+      url_destino = NULL,
+      usar_filtro = TRUE,
+      activo = TRUE
+    WHERE id = ${id} AND comercio_id IS NOT NULL
+    RETURNING id
+  `;
+  if (rows.length === 0) {
+    throw new Error(`La pieza ${id} no existe o ya estaba libre.`);
+  }
 }
 
 // ---------- Inventario de hardware (piezas pre-generadas en lote) ----------
