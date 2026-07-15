@@ -50,7 +50,7 @@ export default function EditarCartel({
       >
         <div className="text-center">
           <div className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: BRAND }}>
-            Taply
+            Matrix Field
           </div>
           <p className="mt-1 text-[17px] font-medium" style={{ color: INK }}>
             Editar tu cartel

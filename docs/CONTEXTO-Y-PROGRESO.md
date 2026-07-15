@@ -1,4 +1,4 @@
-# Contexto y progreso — Taply
+# Contexto y progreso — Matrix Field (ex Taply)
 
 Este documento es para cualquiera del equipo (Simón, la tercera cuenta, o
 quien se sume) que vaya a trabajar en este proyecto usando Claude Code. Reúne

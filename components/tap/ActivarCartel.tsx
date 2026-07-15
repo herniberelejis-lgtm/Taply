@@ -63,7 +63,9 @@ export default function ActivarCartel({ slug }: { slug: string }) {
           <div className="mt-5 rounded-xl px-3.5 py-3 text-left text-[12.5px]" style={{ background: "#f8f9fa", color: INK_SOFT }}>
             Guardá esto para más adelante, por si cambiás el link de reseña:
             <div className="mt-1 break-all font-mono text-[11.5px]" style={{ color: INK }}>
-              taply.app/t/{slug}/editar
+              {/* La URL real de donde está parado — antes decía un dominio
+                  fijo que no existía. Es un client component: window está. */}
+              {typeof window !== "undefined" ? window.location.host : ""}/t/{slug}/editar
             </div>
             Te va a pedir el PIN que elegiste recién.
           </div>
@@ -81,7 +83,7 @@ export default function ActivarCartel({ slug }: { slug: string }) {
       >
         <div className="text-center">
           <div className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: BRAND }}>
-            Taply
+            Matrix Field
           </div>
           <p className="mt-1 text-[17px] font-medium" style={{ color: INK }}>
             Activá tu cartel
