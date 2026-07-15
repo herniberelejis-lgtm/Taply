@@ -5,7 +5,7 @@ import Sidebar from "@/components/Sidebar";
 // pantalla define su propio título vía el template para que las pestañas
 // del navegador se distingan cuando el equipo tiene varias abiertas.
 export const metadata: Metadata = {
-  title: { template: "%s · Taply Admin", default: "Taply Admin" },
+  title: { template: "%s · Matrix Field Admin", default: "Matrix Field Admin" },
   robots: { index: false, follow: false, nocache: true },
 };
 

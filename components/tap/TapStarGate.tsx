@@ -189,7 +189,7 @@ export default function TapStarGate({
             </p>
             <GoogleButton href={googleReviewUrl}>Publicar reseña</GoogleButton>
             <p className="mt-5 text-[11px]" style={{ color: INK_SOFT }}>
-              Impulsado por Taply
+              Impulsado por Matrix Field
             </p>
           </div>
         )}
