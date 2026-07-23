@@ -307,11 +307,15 @@ export async function accionActualizarResena(fd: FormData): Promise<void> {
 export async function accionCrearCompetidor(fd: FormData): Promise<void> {
   await requireAdmin();
   const comercioId = str(fd, "comercioId");
-  await db.crearCompetidor(comercioId, {
+  const competidor = await db.crearCompetidor(comercioId, {
     nombre: str(fd, "nombre"),
     rating: fd.get("rating") ? num(fd, "rating") : null,
     totalResenas: fd.get("totalResenas") ? Math.round(num(fd, "totalResenas")) : null,
+    googlePlaceId: str(fd, "googlePlaceId") || null,
   });
+  // Si vino con place_id, traemos el rating/reseñas reales de una — así no
+  // hay que esperar al cron de mañana para ver el primer dato automático.
+  if (competidor.googlePlaceId) await db.sincronizarCompetidor(competidor.id);
   revalidatePath("/", "layout");
   redirect(`/admin/clientes/${comercioId}/competencia`);
 }
@@ -323,7 +327,22 @@ export async function accionActualizarCompetidor(fd: FormData): Promise<void> {
   await db.actualizarCompetidor(id, {
     rating: fd.get("rating") ? num(fd, "rating") : null,
     totalResenas: fd.get("totalResenas") ? Math.round(num(fd, "totalResenas")) : null,
+    googlePlaceId: str(fd, "googlePlaceId") || null,
   });
+  revalidatePath("/", "layout");
+  redirect(`/admin/clientes/${comercioId}/competencia`);
+}
+
+export async function accionSincronizarCompetidor(fd: FormData): Promise<void> {
+  await requireAdmin();
+  const id = Number(fd.get("id"));
+  const comercioId = str(fd, "comercioId");
+  const ok = await db.sincronizarCompetidor(id);
+  if (!ok) {
+    throw new Error(
+      "No se pudo sincronizar — revisá que el competidor tenga Google Place ID cargado y que GOOGLE_PLACES_API_KEY esté configurada en Vercel.",
+    );
+  }
   revalidatePath("/", "layout");
   redirect(`/admin/clientes/${comercioId}/competencia`);
 }

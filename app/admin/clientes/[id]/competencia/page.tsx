@@ -2,9 +2,15 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCliente, getCompetidores } from "@/lib/db";
-import { accionCrearCompetidor, accionActualizarCompetidor, accionEliminarCompetidor } from "@/app/actions";
+import {
+  accionCrearCompetidor,
+  accionActualizarCompetidor,
+  accionEliminarCompetidor,
+  accionSincronizarCompetidor,
+} from "@/app/actions";
 import { Field, inputCls, SubmitButton } from "@/components/forms";
 import { Card, PageHeader } from "@/components/ui";
+import GooglePlaceIdField from "@/components/GooglePlaceIdField";
 
 export const dynamic = "force-dynamic";
 
@@ -73,13 +79,21 @@ export default async function CompetenciaPage({
 
       <Card>
         <h3 className="text-sm font-semibold text-slate-900">Agregar competidor</h3>
+        <p className="mt-1 text-xs text-slate-500">
+          Si le cargás el Google Place ID, el rating y las reseñas se sincronizan solos
+          todos los días (mismo mecanismo que usa tu propio negocio) — no hace falta
+          tipear nada a mano ni pedirle permiso al dueño, es dato público de Maps.
+        </p>
         <form action={accionCrearCompetidor} className="mt-3 space-y-4">
           <input type="hidden" name="comercioId" value={c.id} />
           <Field label="Nombre del competidor">
             <input name="nombre" required placeholder="Bar Central" className={inputCls} />
           </Field>
+          <Field label="Google Place ID" hint="opcional — sin esto queda manual">
+            <GooglePlaceIdField />
+          </Field>
           <div className="grid grid-cols-2 gap-4">
-            <Field label="Rating" hint="opcional, 1.0 a 5.0">
+            <Field label="Rating" hint="opcional — se pisa solo si cargaste el place ID">
               <input name="rating" type="number" min={1} max={5} step={0.1} className={inputCls} />
             </Field>
             <Field label="Total de reseñas" hint="opcional">
@@ -92,7 +106,7 @@ export default async function CompetenciaPage({
         {competidores.length > 0 && (
           <div className="mt-6 space-y-3 border-t border-slate-100 pt-4">
             <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
-              Actualizar cada semana
+              Competidores cargados
             </p>
             {competidores.map((comp) => (
               <Card key={comp.id}>
@@ -106,17 +120,51 @@ export default async function CompetenciaPage({
                     </button>
                   </form>
                 </div>
-                <form action={accionActualizarCompetidor} className="mt-3 flex items-end gap-3">
-                  <input type="hidden" name="id" value={comp.id} />
-                  <input type="hidden" name="comercioId" value={c.id} />
-                  <Field label="Rating">
-                    <input name="rating" type="number" min={1} max={5} step={0.1} defaultValue={comp.rating ?? undefined} className={inputCls} />
-                  </Field>
-                  <Field label="Total reseñas">
-                    <input name="totalResenas" type="number" min={0} defaultValue={comp.totalResenas ?? undefined} className={inputCls} />
-                  </Field>
-                  <SubmitButton>Guardar</SubmitButton>
-                </form>
+
+                {comp.googlePlaceId ? (
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3">
+                    <div>
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
+                        Automático · Google Places
+                      </span>
+                      <p className="mt-1.5 text-sm text-slate-800">
+                        {comp.rating !== null ? `${Number(comp.rating).toFixed(1)}★` : "—"}
+                        {" · "}
+                        {comp.totalResenas ?? "—"} reseñas
+                      </p>
+                      <p className="mt-0.5 text-xs text-slate-400">
+                        Actualizado {new Date(comp.actualizadoEn).toLocaleString("es-AR")} · se refresca solo todos los días
+                      </p>
+                    </div>
+                    <form action={accionSincronizarCompetidor}>
+                      <input type="hidden" name="id" value={comp.id} />
+                      <input type="hidden" name="comercioId" value={c.id} />
+                      <button
+                        type="submit"
+                        className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:border-slate-400"
+                      >
+                        Sincronizar ahora
+                      </button>
+                    </form>
+                  </div>
+                ) : (
+                  <form action={accionActualizarCompetidor} className="mt-3 space-y-3 border-t border-slate-100 pt-3">
+                    <input type="hidden" name="id" value={comp.id} />
+                    <input type="hidden" name="comercioId" value={c.id} />
+                    <Field label="Google Place ID" hint="cargalo para que deje de ser manual">
+                      <GooglePlaceIdField />
+                    </Field>
+                    <div className="flex items-end gap-3">
+                      <Field label="Rating">
+                        <input name="rating" type="number" min={1} max={5} step={0.1} defaultValue={comp.rating ?? undefined} className={inputCls} />
+                      </Field>
+                      <Field label="Total reseñas">
+                        <input name="totalResenas" type="number" min={0} defaultValue={comp.totalResenas ?? undefined} className={inputCls} />
+                      </Field>
+                      <SubmitButton>Guardar</SubmitButton>
+                    </div>
+                  </form>
+                )}
               </Card>
             ))}
           </div>

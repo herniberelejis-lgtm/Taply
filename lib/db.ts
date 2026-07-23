@@ -358,9 +358,9 @@ export async function sincronizarGoogle(id: string): Promise<boolean> {
 // y el cron reportaba conteos sanos con comercios sin sincronizar.
 const LOTE_SYNC = 5;
 
-async function sincronizarEnLotes<T>(
-  ids: string[],
-  fn: (id: string) => Promise<T>,
+async function sincronizarEnLotes<Id, T>(
+  ids: Id[],
+  fn: (id: Id) => Promise<T>,
 ): Promise<T[]> {
   const exitosos: T[] = [];
   for (let i = 0; i < ids.length; i += LOTE_SYNC) {
@@ -368,7 +368,7 @@ async function sincronizarEnLotes<T>(
     const resultados = await Promise.allSettled(lote.map(fn));
     resultados.forEach((r, j) => {
       if (r.status === "fulfilled") exitosos.push(r.value);
-      else console.error(`Sync falló para el comercio ${lote[j]}:`, r.reason);
+      else console.error(`Sync falló para ${lote[j]}:`, r.reason);
     });
   }
   return exitosos;
@@ -1133,13 +1133,14 @@ export async function crearCompetidor(
 
 export async function actualizarCompetidor(
   id: number,
-  datos: Partial<{ nombre: string; rating: number | null; totalResenas: number | null }>,
+  datos: Partial<{ nombre: string; rating: number | null; totalResenas: number | null; googlePlaceId: string | null }>,
 ): Promise<Competidor> {
   const rows = await sql`
     UPDATE competidores SET
       nombre = COALESCE(${datos.nombre ?? null}, nombre),
       rating = ${datos.rating === undefined ? sql`rating` : datos.rating},
       total_resenas = ${datos.totalResenas === undefined ? sql`total_resenas` : datos.totalResenas},
+      google_place_id = ${datos.googlePlaceId === undefined ? sql`google_place_id` : datos.googlePlaceId},
       actualizado_en = now()
     WHERE id = ${id}
     RETURNING *
@@ -1150,6 +1151,41 @@ export async function actualizarCompetidor(
 
 export async function eliminarCompetidor(id: number): Promise<void> {
   await sql`DELETE FROM competidores WHERE id = ${id}`;
+}
+
+/** Trae rating/reseñas actuales de un competidor desde Google Places API —
+ * mismo mecanismo que sincronizarGoogle() para el propio comercio, pero acá
+ * no hace falta ningún permiso del dueño: el place_id de un negocio ajeno
+ * es dato público. Si no tiene place_id cargado, no hace nada (el
+ * competidor sigue siendo editable a mano). */
+export async function sincronizarCompetidor(id: number): Promise<boolean> {
+  const rows = await sql`SELECT google_place_id FROM competidores WHERE id = ${id}`;
+  const placeId = rows[0]?.google_place_id as string | null | undefined;
+  if (!placeId) return false;
+  const stats = await fetchGooglePlaceStats(placeId);
+  if (!stats) return false;
+
+  await sql`
+    UPDATE competidores SET
+      rating = ${stats.rating},
+      total_resenas = ${stats.totalReseñas},
+      actualizado_en = now()
+    WHERE id = ${id}
+  `;
+  return true;
+}
+
+/** Sincroniza todos los competidores con place_id cargado — corre en el
+ * cron diario, antes de congelar la foto mensual (snapshotCompetenciaMensual),
+ * así el benchmarking histórico se arma con datos frescos y no con lo
+ * último que alguien tipeó a mano. */
+export async function sincronizarCompetidoresTodos(): Promise<{ total: number; actualizados: number }> {
+  const rows = await sql`
+    SELECT id FROM competidores WHERE google_place_id IS NOT NULL AND google_place_id != ''
+  `;
+  const ids = rows.map((r) => Number(r.id));
+  const resultados = await sincronizarEnLotes(ids, sincronizarCompetidor);
+  return { total: ids.length, actualizados: resultados.filter(Boolean).length };
 }
 
 // ---------- Benchmarking histórico (fotos mensuales de competencia) ----------
