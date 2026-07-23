@@ -13,7 +13,6 @@ import type {
   FormatoNFC,
   MetricaMensual,
   Plan,
-  PlataformaIA,
   Rubro,
   TipoSoporte,
   Zona,
@@ -303,33 +302,6 @@ export async function accionActualizarResena(fd: FormData): Promise<void> {
   redirect(`/admin/clientes/${comercioId}/crm`);
 }
 
-// ---------- Checklist SEO ----------
-
-export async function accionToggleChecklist(fd: FormData): Promise<void> {
-  await requireAdmin();
-  const comercioId = str(fd, "comercioId");
-  const itemKey = str(fd, "itemKey");
-  const hecho = fd.get("hecho") === "1";
-  await db.toggleChecklistItem(comercioId, itemKey, hecho);
-  revalidatePath("/", "layout");
-  redirect(`/admin/clientes/${comercioId}/auditoria`);
-}
-
-// ---------- Audit GEO ----------
-
-export async function accionRegistrarAudit(fd: FormData): Promise<void> {
-  await requireAdmin();
-  const comercioId = str(fd, "comercioId");
-  await db.crearAudit(comercioId, {
-    pregunta: str(fd, "pregunta"),
-    plataforma: str(fd, "plataforma") as PlataformaIA,
-    aparece: fd.get("aparece") === "1",
-    competidoresMencionados: str(fd, "competidoresMencionados"),
-  });
-  revalidatePath("/", "layout");
-  redirect(`/admin/clientes/${comercioId}/auditoria`);
-}
-
 // ---------- Competencia ----------
 
 export async function accionCrearCompetidor(fd: FormData): Promise<void> {
@@ -341,7 +313,7 @@ export async function accionCrearCompetidor(fd: FormData): Promise<void> {
     totalResenas: fd.get("totalResenas") ? Math.round(num(fd, "totalResenas")) : null,
   });
   revalidatePath("/", "layout");
-  redirect(`/admin/clientes/${comercioId}/auditoria`);
+  redirect(`/admin/clientes/${comercioId}/competencia`);
 }
 
 export async function accionActualizarCompetidor(fd: FormData): Promise<void> {
@@ -353,7 +325,7 @@ export async function accionActualizarCompetidor(fd: FormData): Promise<void> {
     totalResenas: fd.get("totalResenas") ? Math.round(num(fd, "totalResenas")) : null,
   });
   revalidatePath("/", "layout");
-  redirect(`/admin/clientes/${comercioId}/auditoria`);
+  redirect(`/admin/clientes/${comercioId}/competencia`);
 }
 
 export async function accionEliminarCompetidor(fd: FormData): Promise<void> {
@@ -363,7 +335,7 @@ export async function accionEliminarCompetidor(fd: FormData): Promise<void> {
   await db.eliminarCompetidor(id);
   await auditar("eliminar_competidor", `${id} (${comercioId})`);
   revalidatePath("/", "layout");
-  redirect(`/admin/clientes/${comercioId}/auditoria`);
+  redirect(`/admin/clientes/${comercioId}/competencia`);
 }
 
 // ---------- Prospectos ----------

@@ -1077,18 +1077,6 @@ export async function getChecklist(comercioId: string): Promise<ChecklistItemSEO
   }));
 }
 
-export async function toggleChecklistItem(
-  comercioId: string,
-  itemKey: string,
-  hecho: boolean,
-): Promise<void> {
-  await sql`
-    INSERT INTO checklist_seo (comercio_id, item_key, hecho)
-    VALUES (${comercioId}, ${itemKey}, ${hecho})
-    ON CONFLICT (comercio_id, item_key) DO UPDATE SET hecho = ${hecho}, actualizado_en = now()
-  `;
-}
-
 // ---------- Audit GEO ----------
 
 function mapAudit(r: Record<string, unknown>): AuditGEOResultado {
@@ -1108,18 +1096,6 @@ export async function getAudits(comercioId: string): Promise<AuditGEOResultado[]
     SELECT * FROM audits_geo WHERE comercio_id = ${comercioId} ORDER BY fecha DESC, id DESC
   `;
   return rows.map(mapAudit);
-}
-
-export async function crearAudit(
-  comercioId: string,
-  datos: { pregunta: string; plataforma: PlataformaIA; aparece: boolean; competidoresMencionados?: string },
-): Promise<AuditGEOResultado> {
-  const rows = await sql`
-    INSERT INTO audits_geo (comercio_id, pregunta, plataforma, aparece, competidores_mencionados)
-    VALUES (${comercioId}, ${datos.pregunta}, ${datos.plataforma}, ${datos.aparece}, ${datos.competidoresMencionados ?? ""})
-    RETURNING *
-  `;
-  return mapAudit(rows[0]);
 }
 
 // ---------- Competencia ----------

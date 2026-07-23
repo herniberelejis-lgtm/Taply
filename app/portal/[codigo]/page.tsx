@@ -40,7 +40,7 @@ import EvolucionMensual, { type DetalleMes } from "@/components/EvolucionMensual
 import BenchmarkCompetencia, { type CrecimientoVsCompetencia } from "@/components/BenchmarkCompetencia";
 import GestionResenas from "@/components/GestionResenas";
 import AutomatizacionResenas from "@/components/AutomatizacionResenas";
-import ResumenResenas, { type ResumenResenasData } from "@/components/ResumenResenas";
+import ResumenResenas, { calcularResumenResenas } from "@/components/ResumenResenas";
 import TapsPorSoporteChart from "@/components/TapsPorSoporteChart";
 import {
   StatChip,
@@ -138,43 +138,9 @@ export default async function PortalPage({
 
   // Resumen de "cómo van las reseñas": distribución por estrellas, si la
   // tendencia reciente mejora o empeora, y qué se repite en las quejas —
-  // sobre TODAS las reseñas, no solo las pendientes de responder.
-  const resumenResenas: ResumenResenasData = (() => {
-    const distribucion = ([5, 4, 3, 2, 1] as const).map((estrellas) => ({
-      estrellas,
-      cantidad: resenas.filter((r) => r.estrellas === estrellas).length,
-    }));
-    const total = resenas.length;
-    const promedio = total > 0 ? resenas.reduce((acc, r) => acc + r.estrellas, 0) / total : null;
-
-    let tendencia: ResumenResenasData["tendencia"] = null;
-    if (total >= 4) {
-      // resenas viene ordenado por fecha DESC (getResenas): lo primero es lo más nuevo
-      const mitad = Math.floor(total / 2);
-      const recientes = resenas.slice(0, mitad);
-      const anteriores = resenas.slice(mitad, mitad * 2);
-      const promedioDe = (arr: typeof resenas) =>
-        arr.reduce((acc, r) => acc + r.estrellas, 0) / arr.length;
-      const diferencia = promedioDe(recientes) - promedioDe(anteriores);
-      const dir = diferencia > 0.15 ? "up" : diferencia < -0.15 ? "down" : "flat";
-      tendencia = {
-        dir,
-        texto:
-          dir === "up"
-            ? "mejorando en las últimas reseñas"
-            : dir === "down"
-              ? "bajando en las últimas reseñas"
-              : "estable",
-      };
-    }
-
-    const temasRecurrentes = terminosFrecuentes(
-      resenas.filter((r) => r.estrellas <= 3).map((r) => r.texto),
-      { max: 6, minimo: 2 },
-    );
-
-    return { distribucion, total, promedio, tendencia, temasRecurrentes };
-  })();
+  // sobre TODAS las reseñas, no solo las pendientes de responder. resenas
+  // viene ordenado por fecha DESC (getResenas): lo primero es lo más nuevo.
+  const resumenResenas = calcularResumenResenas(resenas);
 
   // Crecimiento del mes vs el anterior, propio y de la competencia — el
   // número pelado ("tenés 40 reseñas") dice menos que el ritmo ("crecés más
